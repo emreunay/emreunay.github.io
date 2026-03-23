@@ -220,8 +220,9 @@
 </div>
 
 <footer>
-  Requires Chrome on Android with Bluetooth enabled · HTTPS or localhost required<br>
-  Packet format expected from MCU: <code>freq_hz,amplitude_mg\n</code>
+  Chrome on Android · Bluetooth &amp; Location permissions required · HTTPS (Netlify)<br>
+  A list of <em>all nearby BLE devices</em> will appear — select your nRF52 by name.<br>
+  Packet format: <code>freq_hz,amplitude_mg\n</code>
 </footer>
 
 <script>
@@ -373,14 +374,18 @@ async function connect() {
   }
 
   try {
-    setStatus('connecting', 'Scanning…');
+    setStatus('connecting', 'Pick your device in the dialog…');
     btnConnect.disabled = true;
 
     bleDevice = await navigator.bluetooth.requestDevice({
-      // Filter by NUS service UUID — shows only devices advertising NUS.
-      // Services listed in filters are automatically accessible;
-      // optionalServices is NOT needed here.
-      filters: [{ services: [BLE.SERVICE_UUID] }],
+      // acceptAllDevices bypasses the scan-response vs advertising-packet
+      // issue: Chrome only reads primary ad packets for UUID filters, but
+      // NUS firmware puts its 128-bit UUID in the scan response.
+      // The user picks their device by name from the browser's native dialog.
+      acceptAllDevices: true,
+      // optionalServices is mandatory — without it, getPrimaryService() below
+      // will throw a SecurityError even after the user picks the device.
+      optionalServices: [BLE.SERVICE_UUID],
     });
 
     bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
@@ -406,7 +411,7 @@ async function connect() {
     } else if (/cancelled|cancel|chosen/i.test(msg)) {
       msg = 'Cancelled';
     } else if (/not found|no device/i.test(msg)) {
-      msg = 'Device not found — is nRF52 advertising?';
+      msg = 'Service not found — confirm nRF52 is running NUS firmware';
     }
     setStatus('error', msg);
     btnConnect.textContent = 'Connect';
