@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motion Analyzer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0f1117;
+      --card:    #1a1d27;
+      --border:  #2a2d3a;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --blue:    #3b82f6;
+      --green:   #22c55e;
+      --amber:   #f59e0b;
+      --red:     #ef4444;
+      --freq-c:  #38bdf8;
+      --amp-c:   #fb923c;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: 0.02em; }
+    h1 span { color: var(--muted); font-weight: 400; font-size: 0.85rem; margin-left: 0.5rem; }
+
+    /* ── Status badge ── */
+    #status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    #status-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+    #status-dot.connecting { background: var(--amber); animation: pulse 1s infinite; }
+    #status-dot.connected  { background: var(--green); }
+    #status-dot.error      { background: var(--red); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+
+    /* ── Connect button ── */
+    #btn-connect {
+      padding: 0.5rem 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--blue);
+      background: transparent;
+      color: var(--blue);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    #btn-connect:hover  { background: var(--blue); color: #fff; }
+    #btn-connect:active { opacity: 0.8; }
+    #btn-connect:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Big number cards ── */
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .metric-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .metric-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .metric-value {
+      font-size: 2.4rem;
+      font-weight: 700;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-value.freq { color: var(--freq-c); }
+    .metric-value.amp  { color: var(--amp-c);  }
+
+    .metric-unit {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    /* ── Charts ── */
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .chart-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .chart-wrap { position: relative; height: 160px; }
+
+    /* ── Footer note ── */
+    footer {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    /* ── Warning banners ── */
+    .warn-banner {
+      display: none;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      line-height: 1.6;
+    }
+    #unsupported {
+      background: #3b1c1c;
+      border: 1px solid var(--red);
+      color: #fca5a5;
+    }
+    #warn-https {
+      background: #2d2310;
+      border: 1px solid var(--amber);
+      color: #fde68a;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Motion Analyzer <span>MPU6050 · BLE</span></h1>
+  <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+    <div id="status-badge">
+      <div id="status-dot"></div>
+      <span id="status-text">Disconnected</span>
+    </div>
+    <button id="btn-connect">Connect</button>
+  </div>
+</header>
+
+<div id="warn-https" class="warn-banner">
+  ⚠️ <strong>HTTPS required.</strong> Web Bluetooth does not work on <code>file://</code> or plain <code>http://</code>.<br>
+  Open this page via <strong>GitHub Pages</strong> (https://…) or a local HTTPS server.
+</div>
+<div id="unsupported" class="warn-banner">
+  ⚠️ <strong>Web Bluetooth not supported.</strong><br>
+  Use <strong>Chrome for Android</strong> (v85+) with Bluetooth &amp; Location permissions granted to Chrome in Android Settings.
+</div>
+
+<div class="metrics">
+  <div class="metric-card">
+    <div class="metric-label">Frequency</div>
+    <div class="metric-value freq" id="val-freq">—</div>
+    <div class="metric-unit">Hz</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Amplitude</div>
+    <div class="metric-value amp" id="val-amp">—</div>
+    <div class="metric-unit">mg</div>
+  </div>
+</div>
+
+<div class="charts">
+  <div class="chart-card">
+    <div class="chart-title">Frequency over time (Hz)</div>
+    <div class="chart-wrap"><canvas id="chart-freq"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Amplitude over time (mg)</div>
+    <div class="chart-wrap"><canvas id="chart-amp"></canvas></div>
+  </div>
+</div>
+
+<footer>
+  Requires Chrome on Android with Bluetooth enabled · HTTPS or localhost required<br>
+  Packet format expected from MCU: <code>freq_hz,amplitude_mg\n</code>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+//  BLE CONFIGURATION — Nordic UART Service (NUS)
+//
+//  The nRF52 runs NUS firmware (transparent UART-to-BLE bridge).
+//  These UUIDs are standardized by Nordic — do not change them.
+//
+//  DEVICE_NAME must match what your nRF52 firmware advertises.
+//  Nordic SDK default: "Nordic_UART"
+//  Adafruit nRF52 default: "Adafruit nRF52840" or custom
+//  → Change DEVICE_NAME below to whatever shows in your BLE scanner.
+// ─────────────────────────────────────────────────────────────────
+const BLE = {
+  DEVICE_NAME:  'Nordic_UART',  // ← change to your nRF52 advertised name
+
+  // NUS Service UUID (fixed — defined by Nordic)
+  SERVICE_UUID: '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+
+  // NUS TX Characteristic: nRF52 → phone (Notify)
+  CHAR_UUID:    '6e400003-b5a3-f393-e0a9-e50e24dcca9e',
+};
+
+// ─────────────────────────────────────────────────────────────────
+//  CHART SETUP
+// ─────────────────────────────────────────────────────────────────
+const MAX_POINTS = 60;   // show last 60 measurements on chart
+
+const chartDefaults = (color, yLabel) => ({
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      data: [],
+      borderColor: color,
+      backgroundColor: color + '18',
+      borderWidth: 2,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      tension: 0.3,
+      fill: true,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 200 },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } },
+        grid:  { color: '#2a2d3a' },
+      },
+      y: {
+        ticks: { color: '#64748b', font: { size: 10 } },
+        grid:  { color: '#2a2d3a' },
+        title: { display: false },
+      }
+    }
+  }
+});
+
+const freqChart = new Chart(
+  document.getElementById('chart-freq').getContext('2d'),
+  chartDefaults(getComputedStyle(document.documentElement)
+    .getPropertyValue('--freq-c').trim() || '#38bdf8', 'Hz')
+);
+
+const ampChart = new Chart(
+  document.getElementById('chart-amp').getContext('2d'),
+  chartDefaults(getComputedStyle(document.documentElement)
+    .getPropertyValue('--amp-c').trim() || '#fb923c', 'mg')
+);
+
+function pushPoint(chart, label, value) {
+  chart.data.labels.push(label);
+  chart.data.datasets[0].data.push(value);
+  if (chart.data.labels.length > MAX_POINTS) {
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+  chart.update('none');   // skip animation for live data
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  UI HELPERS
+// ─────────────────────────────────────────────────────────────────
+const dot        = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
+const btnConnect = document.getElementById('btn-connect');
+const valFreq    = document.getElementById('val-freq');
+const valAmp     = document.getElementById('val-amp');
+
+function setStatus(state, text) {
+  dot.className = state;
+  statusText.textContent = text;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  DATA PARSING
+// ─────────────────────────────────────────────────────────────────
+let rxBuffer = '';   // accumulate partial BLE packets
+
+function onData(event) {
+  // Decode incoming bytes as UTF-8 text and buffer until newline
+  const chunk = new TextDecoder().decode(event.target.value);
+  rxBuffer += chunk;
+
+  let nl;
+  while ((nl = rxBuffer.indexOf('\n')) !== -1) {
+    const line = rxBuffer.slice(0, nl).trim();
+    rxBuffer   = rxBuffer.slice(nl + 1);
+    parseLine(line);
+  }
+}
+
+function parseLine(line) {
+  if (!line) return;
+  const parts = line.split(',');
+  if (parts.length < 2) return;
+
+  const freq = parseFloat(parts[0]);
+  const amp  = parseFloat(parts[1]);
+  if (isNaN(freq) || isNaN(amp)) return;
+
+  // Update big numbers
+  valFreq.textContent = freq.toFixed(3);
+  valAmp.textContent  = amp.toFixed(1);
+
+  // Timestamp label: HH:MM:SS
+  const now = new Date();
+  const ts  = now.toTimeString().slice(0, 8);
+
+  pushPoint(freqChart, ts, freq);
+  pushPoint(ampChart,  ts, amp);
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  BLE CONNECTION
+// ─────────────────────────────────────────────────────────────────
+let bleDevice = null;
+let bleChar   = null;
+
+async function connect() {
+  if (!navigator.bluetooth) {
+    document.getElementById('unsupported').style.display = 'block';
+    return;
+  }
+
+  try {
+    setStatus('connecting', 'Scanning…');
+    btnConnect.disabled = true;
+
+    bleDevice = await navigator.bluetooth.requestDevice({
+      // Filter by NUS service UUID — shows only devices advertising NUS.
+      // Services listed in filters are automatically accessible;
+      // optionalServices is NOT needed here.
+      filters: [{ services: [BLE.SERVICE_UUID] }],
+    });
+
+    bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+    setStatus('connecting', 'Connecting…');
+    const server  = await bleDevice.gatt.connect();
+    const service = await server.getPrimaryService(BLE.SERVICE_UUID);
+    bleChar        = await service.getCharacteristic(BLE.CHAR_UUID);
+
+    await bleChar.startNotifications();
+    bleChar.addEventListener('characteristicvaluechanged', onData);
+
+    setStatus('connected', `Connected · ${bleDevice.name}`);
+    btnConnect.textContent = 'Disconnect';
+    btnConnect.disabled    = false;
+
+  } catch (err) {
+    console.error(err);
+    let msg = err.message || String(err);
+    if (/disallowed|permissions policy/i.test(msg)) {
+      msg = 'Blocked — page must be served over HTTPS (not file://)';
+      document.getElementById('warn-https').style.display = 'block';
+    } else if (/cancelled|cancel|chosen/i.test(msg)) {
+      msg = 'Cancelled';
+    } else if (/not found|no device/i.test(msg)) {
+      msg = 'Device not found — is nRF52 advertising?';
+    }
+    setStatus('error', msg);
+    btnConnect.textContent = 'Connect';
+    btnConnect.disabled    = false;
+  }
+}
+
+async function disconnect() {
+  if (bleChar) {
+    try { await bleChar.stopNotifications(); } catch (_) {}
+    bleChar = null;
+  }
+  if (bleDevice && bleDevice.gatt.connected) {
+    bleDevice.gatt.disconnect();
+  }
+}
+
+function onDisconnected() {
+  setStatus('', 'Disconnected');
+  btnConnect.textContent = 'Connect';
+  btnConnect.disabled    = false;
+  bleChar   = null;
+  bleDevice = null;
+}
+
+btnConnect.addEventListener('click', () => {
+  if (btnConnect.textContent === 'Disconnect') {
+    disconnect();
+  } else {
+    connect();
+  }
+});
+
+// Check support and context on load
+const isSecure = location.protocol === 'https:' || location.hostname === 'localhost';
+if (!isSecure) {
+  document.getElementById('warn-https').style.display = 'block';
+  btnConnect.disabled = true;
+} else if (!navigator.bluetooth) {
+  document.getElementById('unsupported').style.display = 'block';
+  btnConnect.disabled = true;
+}
+</script>
+
+</body>
+</html>
