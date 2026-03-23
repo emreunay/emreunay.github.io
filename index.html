@@ -227,24 +227,15 @@
 
 <script>
 // ─────────────────────────────────────────────────────────────────
-//  BLE CONFIGURATION — Nordic UART Service (NUS)
+//  BLE CONFIGURATION
 //
-//  The nRF52 runs NUS firmware (transparent UART-to-BLE bridge).
-//  These UUIDs are standardized by Nordic — do not change them.
-//
-//  DEVICE_NAME must match what your nRF52 firmware advertises.
-//  Nordic SDK default: "Nordic_UART"
-//  Adafruit nRF52 default: "Adafruit nRF52840" or custom
-//  → Change DEVICE_NAME below to whatever shows in your BLE scanner.
+//  Service  0xFFF0  →  full: 0000fff0-0000-1000-8000-00805f9b34fb
+//  Char     0xFFF1  →  NOTIFY  (nRF52 → phone)  ← we subscribe here
+//  Char     0xFFF2  →  WRITE   (phone → nRF52)   ← unused for now
 // ─────────────────────────────────────────────────────────────────
 const BLE = {
-  DEVICE_NAME:  'Nordic_UART',  // ← change to your nRF52 advertised name
-
-  // NUS Service UUID (fixed — defined by Nordic)
-  SERVICE_UUID: '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
-
-  // NUS TX Characteristic: nRF52 → phone (Notify)
-  CHAR_UUID:    '6e400003-b5a3-f393-e0a9-e50e24dcca9e',
+  SERVICE_UUID: '0000fff0-0000-1000-8000-00805f9b34fb',
+  CHAR_UUID:    '0000fff1-0000-1000-8000-00805f9b34fb',  // NOTIFY
 };
 
 // ─────────────────────────────────────────────────────────────────
