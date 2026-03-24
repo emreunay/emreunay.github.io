@@ -336,15 +336,19 @@ function pushHistory(chart, label, value) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  CHART — RECONSTRUCTED SINE WAVE
+//  CHART — STITCHED WAVEFORM HISTORY
 //
-//  y(t) = A · sin(2π · f · t)
-//  Generated entirely in-browser from the latest (f, A) measurement.
-//  Shows 3 complete cycles. No extra BLE data needed.
+//  Each FFT window (5.12 s) is rendered as PTS_PER_SEG sine points
+//  on a global, never-resetting time axis.  Frequency changes appear
+//  as cycle-spacing changes; amplitude changes as envelope changes.
 // ─────────────────────────────────────────────────────────────────
-// Each FFT window = FFT_SIZE / SAMPLE_RATE = 256 / 50 = 5.12 s
-const WINDOW_DURATION = 5.12;   // seconds per measurement segment
-const PTS_PER_SEG     = 40;     // sine points rendered per segment
+const WINDOW_DURATION = 5.12;   // seconds per measurement (FFT_SIZE / SAMPLE_RATE)
+const PTS_PER_SEG     = 40;     // sine points per segment
+
+// Own these arrays outside Chart.js — assigning by reference each update
+// avoids issues with Chart.js v4's internal proxy arrays on push().
+const sineLabels = [];
+const sineData   = [];
 
 const sineChart = new Chart(document.getElementById('chart-sine').getContext('2d'), {
   type: 'line',
@@ -393,11 +397,14 @@ function appendSineSegment(ts, freqHz, ampMg) {
   const segIndex = history.length - 1;   // 0-based index of this measurement
 
   for (let j = 0; j < PTS_PER_SEG; j++) {
-    // Global time: each segment occupies [segIndex, segIndex+1) × WINDOW_DURATION
     const t = (segIndex + j / PTS_PER_SEG) * WINDOW_DURATION;
-    sineChart.data.labels.push(j === 0 ? ts : '');
-    sineChart.data.datasets[0].data.push(ampMg * Math.sin(2 * Math.PI * freqHz * t));
+    sineLabels.push(j === 0 ? ts : '');
+    sineData.push(ampMg * Math.sin(2 * Math.PI * freqHz * t));
   }
+
+  // Assign our own arrays — reliable across Chart.js v4 proxy behaviour
+  sineChart.data.labels            = sineLabels;
+  sineChart.data.datasets[0].data  = sineData;
   sineChart.update('none');
 
   const totalTime = history.length * WINDOW_DURATION;
@@ -579,7 +586,8 @@ function exportPDF() {
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
   doc.text(
-    `f = ${lastFreq.toFixed(3)} Hz   A = ${lastAmp.toFixed(1)} mg   (${SINE_CYCLES} cycles)`,
+    `f = ${lastFreq.toFixed(3)} Hz   A = ${lastAmp.toFixed(1)} mg   (last window)  ·  ` +
+    `${history.length} windows  ·  ${(history.length * WINDOW_DURATION).toFixed(1)} s total`,
     mar, y + 4
   );
   y += 6;
