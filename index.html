@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Motion Analyzer</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -20,6 +22,7 @@
       --red:     #ef4444;
       --freq-c:  #38bdf8;
       --amp-c:   #fb923c;
+      --sine-c:  #a78bfa;
     }
 
     body {
@@ -30,6 +33,7 @@
       padding: 1.5rem;
     }
 
+    /* ── Header ── */
     header {
       display: flex;
       align-items: center;
@@ -38,7 +42,6 @@
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
-
     h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: 0.02em; }
     h1 span { color: var(--muted); font-weight: 400; font-size: 0.85rem; margin-left: 0.5rem; }
 
@@ -59,42 +62,41 @@
     #status-dot.connecting { background: var(--amber); animation: pulse 1s infinite; }
     #status-dot.connected  { background: var(--green); }
     #status-dot.error      { background: var(--red); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
-    }
-
-    /* ── Connect button ── */
-    #btn-connect {
+    /* ── Buttons ── */
+    .btn {
       padding: 0.5rem 1.25rem;
       border-radius: 8px;
-      border: 1px solid var(--blue);
-      background: transparent;
-      color: var(--blue);
+      border: 1px solid;
       font-size: 0.85rem;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s, color 0.2s;
+      transition: background 0.2s, color 0.2s, opacity 0.2s;
+      background: transparent;
     }
-    #btn-connect:hover  { background: var(--blue); color: #fff; }
-    #btn-connect:active { opacity: 0.8; }
-    #btn-connect:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn:active  { opacity: 0.8; }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-blue   { border-color: var(--blue);  color: var(--blue);  }
+    .btn-blue:not(:disabled):hover  { background: var(--blue);  color: #fff; }
+    .btn-green  { border-color: var(--green); color: var(--green); }
+    .btn-green:not(:disabled):hover { background: var(--green); color: #fff; }
+    .btn-amber  { border-color: var(--amber); color: var(--amber); }
+    .btn-amber:not(:disabled):hover { background: var(--amber); color: #fff; }
 
-    /* ── Big number cards ── */
+    /* ── Metrics ── */
     .metrics {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
     }
-
     .metric-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 1.25rem 1.5rem;
     }
-
     .metric-label {
       font-size: 0.7rem;
       text-transform: uppercase;
@@ -102,55 +104,54 @@
       color: var(--muted);
       margin-bottom: 0.4rem;
     }
-
     .metric-value {
       font-size: 2.4rem;
       font-weight: 700;
       line-height: 1;
       font-variant-numeric: tabular-nums;
     }
-
     .metric-value.freq { color: var(--freq-c); }
     .metric-value.amp  { color: var(--amp-c);  }
+    .metric-unit { font-size: 0.85rem; color: var(--muted); margin-top: 0.3rem; }
 
-    .metric-unit {
-      font-size: 0.85rem;
+    /* ── Action bar ── */
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    #history-count {
+      margin-left: auto;
+      font-size: 0.75rem;
       color: var(--muted);
-      margin-top: 0.3rem;
     }
 
     /* ── Charts ── */
-    .charts {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
-
+    .charts { display: grid; grid-template-columns: 1fr; gap: 1rem; }
     .chart-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 1.25rem;
     }
-
     .chart-title {
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .chart-subtitle {
+      font-size: 0.8rem;
+      color: var(--sine-c);
       margin-bottom: 0.75rem;
+      font-variant-numeric: tabular-nums;
+      min-height: 1.2em;
     }
-
-    .chart-wrap { position: relative; height: 160px; }
-
-    /* ── Footer note ── */
-    footer {
-      margin-top: 1.5rem;
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-align: center;
-      line-height: 1.6;
-    }
+    .chart-wrap          { position: relative; height: 160px; }
+    .chart-wrap.sine-h   { height: 200px; }
 
     /* ── Warning banners ── */
     .warn-banner {
@@ -161,15 +162,30 @@
       margin-bottom: 1rem;
       line-height: 1.6;
     }
-    #unsupported {
-      background: #3b1c1c;
-      border: 1px solid var(--red);
-      color: #fca5a5;
+    #unsupported  { background: #3b1c1c; border: 1px solid var(--red);   color: #fca5a5; }
+    #warn-https   { background: #2d2310; border: 1px solid var(--amber);  color: #fde68a; }
+
+    /* ── Debug strip ── */
+    #debug-strip {
+      background: #111318;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      font-size: 0.72rem;
+      font-family: 'Courier New', monospace;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      line-height: 1.8;
     }
-    #warn-https {
-      background: #2d2310;
-      border: 1px solid var(--amber);
-      color: #fde68a;
+    #debug-strip span { color: var(--text); }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
     }
   </style>
 </head>
@@ -182,19 +198,26 @@
       <div id="status-dot"></div>
       <span id="status-text">Disconnected</span>
     </div>
-    <button id="btn-connect">Connect</button>
+    <button id="btn-connect" class="btn btn-blue">Connect</button>
   </div>
 </header>
 
+<div id="debug-strip">
+  📡 Notifications: <span id="dbg-count">0</span> &nbsp;|&nbsp;
+  Last raw: <span id="dbg-raw">—</span> &nbsp;|&nbsp;
+  Parse: <span id="dbg-parse">—</span>
+</div>
+
 <div id="warn-https" class="warn-banner">
   ⚠️ <strong>HTTPS required.</strong> Web Bluetooth does not work on <code>file://</code> or plain <code>http://</code>.<br>
-  Open this page via <strong>GitHub Pages</strong> (https://…) or a local HTTPS server.
+  Open this page via <strong>Netlify / GitHub Pages</strong> (https://…).
 </div>
 <div id="unsupported" class="warn-banner">
   ⚠️ <strong>Web Bluetooth not supported.</strong><br>
-  Use <strong>Chrome for Android</strong> (v85+) with Bluetooth &amp; Location permissions granted to Chrome in Android Settings.
+  Use <strong>Chrome for Android</strong> (v85+) with Bluetooth &amp; Location permissions granted.
 </div>
 
+<!-- Big number cards -->
 <div class="metrics">
   <div class="metric-card">
     <div class="metric-label">Frequency</div>
@@ -208,95 +231,170 @@
   </div>
 </div>
 
+<!-- Action buttons -->
+<div class="actions">
+  <button id="btn-json" class="btn btn-green" disabled>Export JSON</button>
+  <button id="btn-pdf"  class="btn btn-amber" disabled>Export PDF</button>
+  <span id="history-count">0 measurements recorded</span>
+</div>
+
+<!-- Charts -->
 <div class="charts">
+
+  <!-- 1. Reconstructed sine wave -->
+  <div class="chart-card">
+    <div class="chart-title">Reconstructed waveform</div>
+    <div class="chart-subtitle" id="sine-subtitle">Waiting for first measurement…</div>
+    <div class="chart-wrap sine-h"><canvas id="chart-sine"></canvas></div>
+  </div>
+
+  <!-- 2. Frequency history -->
   <div class="chart-card">
     <div class="chart-title">Frequency over time (Hz)</div>
     <div class="chart-wrap"><canvas id="chart-freq"></canvas></div>
   </div>
+
+  <!-- 3. Amplitude history -->
   <div class="chart-card">
     <div class="chart-title">Amplitude over time (mg)</div>
     <div class="chart-wrap"><canvas id="chart-amp"></canvas></div>
   </div>
+
 </div>
 
 <footer>
   Chrome on Android · Bluetooth &amp; Location permissions required · HTTPS (Netlify)<br>
-  A list of <em>all nearby BLE devices</em> will appear — select your nRF52 by name.<br>
-  Packet format: <code>freq_hz,amplitude_mg\n</code>
+  Packet format: <code>freq_hz,amplitude_mg\n</code> · Sine wave reconstructed locally as <em>A · sin(2πft)</em>
 </footer>
 
 <script>
 // ─────────────────────────────────────────────────────────────────
 //  BLE CONFIGURATION
 //
-//  Service  0xFFF0  →  full: 0000fff0-0000-1000-8000-00805f9b34fb
-//  Char     0xFFF1  →  NOTIFY  (nRF52 → phone)  ← we subscribe here
-//  Char     0xFFF2  →  WRITE   (phone → nRF52)   ← unused for now
+//  Service  0xFFF0  →  0000fff0-0000-1000-8000-00805f9b34fb
+//  Char     0xFFF1  →  NOTIFY  (nRF52 → phone)
 // ─────────────────────────────────────────────────────────────────
 const BLE = {
   SERVICE_UUID: '0000fff0-0000-1000-8000-00805f9b34fb',
-  CHAR_UUID:    '0000fff1-0000-1000-8000-00805f9b34fb',  // NOTIFY
+  CHAR_UUID:    '0000fff1-0000-1000-8000-00805f9b34fb',
 };
 
 // ─────────────────────────────────────────────────────────────────
-//  CHART SETUP
+//  MEASUREMENT HISTORY
 // ─────────────────────────────────────────────────────────────────
-const MAX_POINTS = 60;   // show last 60 measurements on chart
+const history = [];   // { ts: "HH:MM:SS", iso: "...", freq: 2.347, amp: 83.21 }
+const MAX_HISTORY_CHART = 60;   // points shown on freq/amp history charts
 
-const chartDefaults = (color, yLabel) => ({
+const historyCountEl = document.getElementById('history-count');
+function updateHistoryCount() {
+  historyCountEl.textContent = `${history.length} measurement${history.length !== 1 ? 's' : ''} recorded`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  CHART — HISTORY (freq & amp over time)
+// ─────────────────────────────────────────────────────────────────
+function makeHistoryChart(canvasId, color) {
+  return new Chart(document.getElementById(canvasId).getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        data: [],
+        borderColor: color,
+        backgroundColor: color + '18',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 200 },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { color: '#2a2d3a' } },
+        y: { ticks: { color: '#64748b', font: { size: 10 } },                   grid: { color: '#2a2d3a' } },
+      }
+    }
+  });
+}
+
+const freqChart = makeHistoryChart('chart-freq', '#38bdf8');
+const ampChart  = makeHistoryChart('chart-amp',  '#fb923c');
+
+function pushHistory(chart, label, value) {
+  chart.data.labels.push(label);
+  chart.data.datasets[0].data.push(value);
+  if (chart.data.labels.length > MAX_HISTORY_CHART) {
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+  chart.update('none');
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  CHART — RECONSTRUCTED SINE WAVE
+//
+//  y(t) = A · sin(2π · f · t)
+//  Generated entirely in-browser from the latest (f, A) measurement.
+//  Shows 3 complete cycles. No extra BLE data needed.
+// ─────────────────────────────────────────────────────────────────
+const SINE_POINTS  = 300;
+const SINE_CYCLES  = 3;
+
+const sineChart = new Chart(document.getElementById('chart-sine').getContext('2d'), {
   type: 'line',
   data: {
     labels: [],
     datasets: [{
       data: [],
-      borderColor: color,
-      backgroundColor: color + '18',
+      borderColor: '#a78bfa',
+      backgroundColor: 'rgba(167,139,250,0.07)',
       borderWidth: 2,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-      tension: 0.3,
+      pointRadius: 0,     // no dots — pure smooth wave
+      tension: 0.4,
       fill: true,
     }]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 200 },
+    animation: { duration: 300 },
     plugins: { legend: { display: false } },
     scales: {
       x: {
-        ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } },
+        ticks: { color: '#64748b', maxTicksLimit: 7, font: { size: 10 } },
         grid:  { color: '#2a2d3a' },
+        title: { display: true, text: 'time (s)', color: '#64748b', font: { size: 10 } },
       },
       y: {
         ticks: { color: '#64748b', font: { size: 10 } },
         grid:  { color: '#2a2d3a' },
-        title: { display: false },
+        title: { display: true, text: 'mg', color: '#64748b', font: { size: 10 } },
       }
     }
   }
 });
 
-const freqChart = new Chart(
-  document.getElementById('chart-freq').getContext('2d'),
-  chartDefaults(getComputedStyle(document.documentElement)
-    .getPropertyValue('--freq-c').trim() || '#38bdf8', 'Hz')
-);
+function updateSineWave(freqHz, ampMg) {
+  const duration = SINE_CYCLES / freqHz;
+  const labels = [], data = [];
 
-const ampChart = new Chart(
-  document.getElementById('chart-amp').getContext('2d'),
-  chartDefaults(getComputedStyle(document.documentElement)
-    .getPropertyValue('--amp-c').trim() || '#fb923c', 'mg')
-);
-
-function pushPoint(chart, label, value) {
-  chart.data.labels.push(label);
-  chart.data.datasets[0].data.push(value);
-  if (chart.data.labels.length > MAX_POINTS) {
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
+  for (let i = 0; i <= SINE_POINTS; i++) {
+    const t = (i / SINE_POINTS) * duration;
+    labels.push(t.toFixed(3));
+    data.push(ampMg * Math.sin(2 * Math.PI * freqHz * t));
   }
-  chart.update('none');   // skip animation for live data
+
+  sineChart.data.labels              = labels;
+  sineChart.data.datasets[0].data    = data;
+  sineChart.update();
+
+  document.getElementById('sine-subtitle').textContent =
+    `f = ${freqHz.toFixed(3)} Hz   A = ${ampMg.toFixed(1)} mg   (${SINE_CYCLES} cycles shown)`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -307,6 +405,8 @@ const statusText = document.getElementById('status-text');
 const btnConnect = document.getElementById('btn-connect');
 const valFreq    = document.getElementById('val-freq');
 const valAmp     = document.getElementById('val-amp');
+const btnJson    = document.getElementById('btn-json');
+const btnPdf     = document.getElementById('btn-pdf');
 
 function setStatus(state, text) {
   dot.className = state;
@@ -316,41 +416,217 @@ function setStatus(state, text) {
 // ─────────────────────────────────────────────────────────────────
 //  DATA PARSING
 // ─────────────────────────────────────────────────────────────────
-let rxBuffer = '';   // accumulate partial BLE packets
+let rxBuffer = '';
+let pktCount = 0;
+
+const dbgCount = document.getElementById('dbg-count');
+const dbgRaw   = document.getElementById('dbg-raw');
+const dbgParse = document.getElementById('dbg-parse');
 
 function onData(event) {
-  // Decode incoming bytes as UTF-8 text and buffer until newline
-  const chunk = new TextDecoder().decode(event.target.value);
+  const chunk = new TextDecoder('utf-8').decode(event.target.value);
+  pktCount++;
+  dbgCount.textContent = pktCount;
+  dbgRaw.textContent   = JSON.stringify(chunk);
+
   rxBuffer += chunk;
 
   let nl;
   while ((nl = rxBuffer.indexOf('\n')) !== -1) {
     const line = rxBuffer.slice(0, nl).trim();
     rxBuffer   = rxBuffer.slice(nl + 1);
-    parseLine(line);
+    parseLine(line, 'newline');
+  }
+  // Fallback for modules that omit \n
+  if (rxBuffer.includes(',') && !rxBuffer.includes('\n')) {
+    parseLine(rxBuffer.trim(), 'no-newline');
+    rxBuffer = '';
   }
 }
 
-function parseLine(line) {
+function parseLine(line, src) {
   if (!line) return;
   const parts = line.split(',');
-  if (parts.length < 2) return;
+  if (parts.length < 2) { dbgParse.textContent = `bad format: "${line}"`; return; }
 
   const freq = parseFloat(parts[0]);
   const amp  = parseFloat(parts[1]);
-  if (isNaN(freq) || isNaN(amp)) return;
+  if (isNaN(freq) || isNaN(amp)) { dbgParse.textContent = `NaN: "${line}"`; return; }
 
-  // Update big numbers
+  dbgParse.textContent = `OK → ${freq.toFixed(3)} Hz, ${amp.toFixed(1)} mg`;
+
+  // Big numbers
   valFreq.textContent = freq.toFixed(3);
   valAmp.textContent  = amp.toFixed(1);
 
-  // Timestamp label: HH:MM:SS
+  // Timestamp
   const now = new Date();
   const ts  = now.toTimeString().slice(0, 8);
 
-  pushPoint(freqChart, ts, freq);
-  pushPoint(ampChart,  ts, amp);
+  // History
+  history.push({ ts, iso: now.toISOString(), freq, amp });
+  updateHistoryCount();
+  btnJson.disabled = false;
+  btnPdf.disabled  = false;
+
+  // History charts
+  pushHistory(freqChart, ts, freq);
+  pushHistory(ampChart,  ts, amp);
+
+  // Reconstructed sine wave
+  updateSineWave(freq, amp);
 }
+
+// ─────────────────────────────────────────────────────────────────
+//  EXPORT — JSON
+// ─────────────────────────────────────────────────────────────────
+function exportJSON() {
+  if (!history.length) return;
+
+  const payload = {
+    title:        'Motion Analyzer — Measurement Export',
+    exported_at:  new Date().toISOString(),
+    device:       bleDevice ? (bleDevice.name || 'nRF52') : 'nRF52',
+    sample_count: history.length,
+    measurements: history.map(m => ({
+      time:     m.ts,
+      iso:      m.iso,
+      freq_hz:  m.freq,
+      amp_mg:   m.amp,
+    })),
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `motion_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  EXPORT — PDF
+// ─────────────────────────────────────────────────────────────────
+function exportPDF() {
+  if (!history.length) return;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W   = doc.internal.pageSize.getWidth();   // 210
+  const mar = 18;
+  let y = mar;
+
+  // ── Title ──
+  doc.setFontSize(18);
+  doc.setTextColor(30, 30, 30);
+  doc.text('Motion Analyzer Report', mar, y);
+  y += 7;
+
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  const deviceName = bleDevice ? (bleDevice.name || 'nRF52') : 'nRF52';
+  doc.text(`Generated: ${new Date().toLocaleString()}   |   Device: ${deviceName}`, mar, y);
+  y += 4;
+  doc.setDrawColor(200, 200, 200);
+  doc.line(mar, y, W - mar, y);
+  y += 7;
+
+  // ── Summary statistics ──
+  const freqs = history.map(m => m.freq);
+  const amps  = history.map(m => m.amp);
+  const mean  = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+  doc.setFontSize(11);
+  doc.setTextColor(30, 30, 30);
+  doc.text('Summary Statistics', mar, y);
+  y += 2;
+
+  doc.autoTable({
+    startY: y,
+    margin: { left: mar, right: mar },
+    head: [['', 'Min', 'Max', 'Mean']],
+    body: [
+      ['Frequency (Hz)',
+        Math.min(...freqs).toFixed(3), Math.max(...freqs).toFixed(3), mean(freqs).toFixed(3)],
+      ['Amplitude (mg)',
+        Math.min(...amps).toFixed(1),  Math.max(...amps).toFixed(1),  mean(amps).toFixed(1)],
+      ['Measurements', history.length, '', ''],
+    ],
+    headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 9 },
+    bodyStyles: { fontSize: 9, textColor: [30, 30, 30] },
+    alternateRowStyles: { fillColor: [245, 245, 250] },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 } },
+  });
+  y = doc.lastAutoTable.finalY + 8;
+
+  // ── Reconstructed sine wave chart ──
+  doc.setFontSize(11);
+  doc.setTextColor(30, 30, 30);
+  doc.text('Reconstructed Waveform  (last measurement)', mar, y);
+  y += 2;
+
+  const lastFreq = freqs[freqs.length - 1];
+  const lastAmp  = amps[amps.length - 1];
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text(
+    `f = ${lastFreq.toFixed(3)} Hz   A = ${lastAmp.toFixed(1)} mg   (${SINE_CYCLES} cycles)`,
+    mar, y + 4
+  );
+  y += 6;
+
+  const sineCanvas  = document.getElementById('chart-sine');
+  const sineImgData = sineCanvas.toDataURL('image/png');
+  const imgH = 55;
+  doc.addImage(sineImgData, 'PNG', mar, y, W - mar * 2, imgH);
+  y += imgH + 8;
+
+  // ── Measurement history table ──
+  doc.setFontSize(11);
+  doc.setTextColor(30, 30, 30);
+  doc.text('Measurement History', mar, y);
+  y += 2;
+
+  const MAX_TABLE_ROWS = 200;
+  const rows = history.slice(-MAX_TABLE_ROWS).map((m, i) => [
+    history.length <= MAX_TABLE_ROWS ? i + 1 : history.length - MAX_TABLE_ROWS + i + 1,
+    m.ts,
+    m.freq.toFixed(3),
+    m.amp.toFixed(1),
+  ]);
+
+  doc.autoTable({
+    startY: y,
+    margin: { left: mar, right: mar },
+    head: [['#', 'Time', 'Freq (Hz)', 'Amp (mg)']],
+    body: rows,
+    headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 9 },
+    bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
+    alternateRowStyles: { fillColor: [245, 245, 250] },
+    columnStyles: {
+      0: { cellWidth: 12 },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 35 },
+    },
+    didDrawPage: (data) => {
+      // Page number footer
+      const pageCount = doc.internal.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.setTextColor(160, 160, 160);
+      doc.text(
+        `Page ${data.pageNumber} of ${pageCount}`,
+        W / 2, doc.internal.pageSize.getHeight() - 8,
+        { align: 'center' }
+      );
+    },
+  });
+
+  doc.save(`motion_report_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+btnJson.addEventListener('click', exportJSON);
+btnPdf.addEventListener('click', exportPDF);
 
 // ─────────────────────────────────────────────────────────────────
 //  BLE CONNECTION
@@ -363,22 +639,14 @@ async function connect() {
     document.getElementById('unsupported').style.display = 'block';
     return;
   }
-
   try {
     setStatus('connecting', 'Pick your device in the dialog…');
     btnConnect.disabled = true;
 
     bleDevice = await navigator.bluetooth.requestDevice({
-      // acceptAllDevices bypasses the scan-response vs advertising-packet
-      // issue: Chrome only reads primary ad packets for UUID filters, but
-      // NUS firmware puts its 128-bit UUID in the scan response.
-      // The user picks their device by name from the browser's native dialog.
       acceptAllDevices: true,
-      // optionalServices is mandatory — without it, getPrimaryService() below
-      // will throw a SecurityError even after the user picks the device.
       optionalServices: [BLE.SERVICE_UUID],
     });
-
     bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
     setStatus('connecting', 'Connecting…');
@@ -389,7 +657,7 @@ async function connect() {
     await bleChar.startNotifications();
     bleChar.addEventListener('characteristicvaluechanged', onData);
 
-    setStatus('connected', `Connected · ${bleDevice.name}`);
+    setStatus('connected', `Connected · ${bleDevice.name || 'nRF52'}`);
     btnConnect.textContent = 'Disconnect';
     btnConnect.disabled    = false;
 
@@ -397,12 +665,12 @@ async function connect() {
     console.error(err);
     let msg = err.message || String(err);
     if (/disallowed|permissions policy/i.test(msg)) {
-      msg = 'Blocked — page must be served over HTTPS (not file://)';
+      msg = 'Blocked — must be served over HTTPS';
       document.getElementById('warn-https').style.display = 'block';
-    } else if (/cancelled|cancel|chosen/i.test(msg)) {
+    } else if (/cancel/i.test(msg)) {
       msg = 'Cancelled';
-    } else if (/not found|no device/i.test(msg)) {
-      msg = 'Service not found — confirm nRF52 is running NUS firmware';
+    } else if (/not found/i.test(msg)) {
+      msg = 'Service UUID not found on device';
     }
     setStatus('error', msg);
     btnConnect.textContent = 'Connect';
@@ -411,32 +679,24 @@ async function connect() {
 }
 
 async function disconnect() {
-  if (bleChar) {
-    try { await bleChar.stopNotifications(); } catch (_) {}
-    bleChar = null;
-  }
-  if (bleDevice && bleDevice.gatt.connected) {
-    bleDevice.gatt.disconnect();
-  }
+  if (bleChar) { try { await bleChar.stopNotifications(); } catch (_) {} bleChar = null; }
+  if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
 }
 
 function onDisconnected() {
   setStatus('', 'Disconnected');
   btnConnect.textContent = 'Connect';
   btnConnect.disabled    = false;
-  bleChar   = null;
-  bleDevice = null;
+  bleChar = bleDevice = null;
 }
 
 btnConnect.addEventListener('click', () => {
-  if (btnConnect.textContent === 'Disconnect') {
-    disconnect();
-  } else {
-    connect();
-  }
+  btnConnect.textContent === 'Disconnect' ? disconnect() : connect();
 });
 
-// Check support and context on load
+// ─────────────────────────────────────────────────────────────────
+//  STARTUP CHECKS
+// ─────────────────────────────────────────────────────────────────
 const isSecure = location.protocol === 'https:' || location.hostname === 'localhost';
 if (!isSecure) {
   document.getElementById('warn-https').style.display = 'block';
