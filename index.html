@@ -241,9 +241,9 @@
 <!-- Charts -->
 <div class="charts">
 
-  <!-- 1. Reconstructed sine wave -->
+  <!-- 1. Stitched waveform history -->
   <div class="chart-card">
-    <div class="chart-title">Reconstructed waveform</div>
+    <div class="chart-title">Waveform history — stitched · A · sin(2πft) on global time axis</div>
     <div class="chart-subtitle" id="sine-subtitle">Waiting for first measurement…</div>
     <div class="chart-wrap sine-h"><canvas id="chart-sine"></canvas></div>
   </div>
@@ -264,7 +264,7 @@
 
 <footer>
   Chrome on Android · Bluetooth &amp; Location permissions required · HTTPS (Netlify)<br>
-  Packet format: <code>freq_hz,amplitude_mg\n</code> · Sine wave reconstructed locally as <em>A · sin(2πft)</em>
+  Packet format: <code>freq_hz,amplitude_mg\n</code> · Each FFT window (5.12 s) stitched as <em>A · sin(2πft)</em> on a global time axis
 </footer>
 
 <script>
@@ -342,8 +342,9 @@ function pushHistory(chart, label, value) {
 //  Generated entirely in-browser from the latest (f, A) measurement.
 //  Shows 3 complete cycles. No extra BLE data needed.
 // ─────────────────────────────────────────────────────────────────
-const SINE_POINTS  = 300;
-const SINE_CYCLES  = 3;
+// Each FFT window = FFT_SIZE / SAMPLE_RATE = 256 / 50 = 5.12 s
+const WINDOW_DURATION = 5.12;   // seconds per measurement segment
+const PTS_PER_SEG     = 40;     // sine points rendered per segment
 
 const sineChart = new Chart(document.getElementById('chart-sine').getContext('2d'), {
   type: 'line',
@@ -362,13 +363,19 @@ const sineChart = new Chart(document.getElementById('chart-sine').getContext('2d
   options: {
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 300 },
+    animation: { duration: 0 },    // no animation — segments are appended live
     plugins: { legend: { display: false } },
     scales: {
       x: {
-        ticks: { color: '#64748b', maxTicksLimit: 7, font: { size: 10 } },
-        grid:  { color: '#2a2d3a' },
-        title: { display: true, text: 'time (s)', color: '#64748b', font: { size: 10 } },
+        // Only segment-boundary ticks are labelled (HH:MM:SS); inner points are ''
+        ticks: {
+          color: '#64748b',
+          maxTicksLimit: 10,
+          font: { size: 10 },
+          autoSkip: true,
+        },
+        grid:  { color: '#1e2130' },
+        title: { display: true, text: 'clock time (each tick = one FFT window)', color: '#64748b', font: { size: 9 } },
       },
       y: {
         ticks: { color: '#64748b', font: { size: 10 } },
@@ -379,22 +386,24 @@ const sineChart = new Chart(document.getElementById('chart-sine').getContext('2d
   }
 });
 
-function updateSineWave(freqHz, ampMg) {
-  const duration = SINE_CYCLES / freqHz;
-  const labels = [], data = [];
+// Append one FFT window's worth of sine points onto the global time axis.
+// t is never reset — frequency and amplitude changes appear as natural
+// changes in cycle spacing and envelope across the entire chart.
+function appendSineSegment(ts, freqHz, ampMg) {
+  const segIndex = history.length - 1;   // 0-based index of this measurement
 
-  for (let i = 0; i <= SINE_POINTS; i++) {
-    const t = (i / SINE_POINTS) * duration;
-    labels.push(t.toFixed(3));
-    data.push(ampMg * Math.sin(2 * Math.PI * freqHz * t));
+  for (let j = 0; j < PTS_PER_SEG; j++) {
+    // Global time: each segment occupies [segIndex, segIndex+1) × WINDOW_DURATION
+    const t = (segIndex + j / PTS_PER_SEG) * WINDOW_DURATION;
+    sineChart.data.labels.push(j === 0 ? ts : '');
+    sineChart.data.datasets[0].data.push(ampMg * Math.sin(2 * Math.PI * freqHz * t));
   }
+  sineChart.update('none');
 
-  sineChart.data.labels              = labels;
-  sineChart.data.datasets[0].data    = data;
-  sineChart.update();
-
+  const totalTime = history.length * WINDOW_DURATION;
   document.getElementById('sine-subtitle').textContent =
-    `f = ${freqHz.toFixed(3)} Hz   A = ${ampMg.toFixed(1)} mg   (${SINE_CYCLES} cycles shown)`;
+    `Latest:  f = ${freqHz.toFixed(3)} Hz   A = ${ampMg.toFixed(1)} mg` +
+    `   |   Total history: ${totalTime.toFixed(1)} s  (${history.length} windows)`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -473,8 +482,8 @@ function parseLine(line, src) {
   pushHistory(freqChart, ts, freq);
   pushHistory(ampChart,  ts, amp);
 
-  // Reconstructed sine wave
-  updateSineWave(freq, amp);
+  // Append segment to stitched waveform history
+  appendSineSegment(ts, freq, amp);
 }
 
 // ─────────────────────────────────────────────────────────────────
