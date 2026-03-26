@@ -201,10 +201,7 @@
     <h2>KMSENSE Motion Analyzer — User Manual</h2>
 
     <h3>System Overview</h3>
-    <p>The PCB mounts to the system under test. An <strong>MPU6050 IMU</strong> samples acceleration at 50 Hz.
-       An <strong>STM32 MCU</strong> runs a moving-average detrend, bandpass IIR filter (0.5–6 Hz),
-       and 256-point FFT every ~5 seconds. Results are sent over <strong>BLE</strong> via the on-board
-       nRF52 to this dashboard.</p>
+    <p>This motion analyzer, developed by KMSENSE, is used for frequency-domain analysis of harmonic motions, vibrations, tremors, etc.</p>
 
     <h3>How to Connect</h3>
     <ul>
@@ -253,7 +250,7 @@
 <header>
   <div class="header-brand">
     <h1><span class="brand-k">KM</span>SENSE Motion Analyzer</h1>
-    <div class="header-sub">MPU6050 · STM32 · nRF52 BLE 5.0</div>
+    <div class="header-sub">Developed by KMSENSE</div>
   </div>
   <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
     <div id="status-badge">
@@ -305,23 +302,23 @@
 <!-- Charts -->
 <div class="charts">
 
-  <!-- 1. Frequency history -->
+  <!-- 1. Live waveform — last 5 windows (FIFO) — dashboard shows this first -->
+  <div class="chart-card">
+    <div class="chart-title">Waveform — last 5 windows · A · sin(2πft) · rolling</div>
+    <div class="chart-subtitle" id="sine-subtitle">Waiting for first measurement…</div>
+    <div class="chart-wrap sine-h"><canvas id="chart-sine"></canvas></div>
+  </div>
+
+  <!-- 2. Frequency history -->
   <div class="chart-card">
     <div class="chart-title">Frequency over time (Hz)</div>
     <div class="chart-wrap"><canvas id="chart-freq"></canvas></div>
   </div>
 
-  <!-- 2. Amplitude history -->
+  <!-- 3. Amplitude history -->
   <div class="chart-card">
     <div class="chart-title">Amplitude over time (mg)</div>
     <div class="chart-wrap"><canvas id="chart-amp"></canvas></div>
-  </div>
-
-  <!-- 3. Live waveform — last 5 windows (FIFO) -->
-  <div class="chart-card">
-    <div class="chart-title">Waveform — last 5 windows · A · sin(2πft) · rolling</div>
-    <div class="chart-subtitle" id="sine-subtitle">Waiting for first measurement…</div>
-    <div class="chart-wrap sine-h"><canvas id="chart-sine"></canvas></div>
   </div>
 
 </div>
@@ -345,7 +342,10 @@ const BLE = {
 //  CONSTANTS
 // ─────────────────────────────────────────────────────────────────
 const WINDOW_DURATION   = 5.12;  // seconds per FFT window (256 samples / 50 Hz)
-const PTS_PER_SEG       = 40;    // sine points generated per window
+const PTS_PER_SEG       = 400;   // sine points per window — needs enough for smooth curves at max freq
+                                 // pts/cycle = PTS_PER_SEG / (freq × WINDOW_DURATION)
+                                 // @ 4 Hz  → 400 / (4  × 5.12) ≈ 20 pts/cycle  ✓
+                                 // @ 10 Hz → 400 / (10 × 5.12) ≈  8 pts/cycle  ✓ (bezier tension fills gaps)
 const MAX_SINE_WINDOWS  = 5;     // live chart keeps last N windows (FIFO)
 const MAX_HISTORY_CHART = 60;    // freq/amp charts keep last N points
 const PDF_GROUP_SIZE    = 5;     // waveform windows per chart in PDF report
