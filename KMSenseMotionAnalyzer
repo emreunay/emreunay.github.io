@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KMSENSE Motion Analyzer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0f1117;
+      --card:    #1a1d27;
+      --border:  #2a2d3a;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --blue:    #3b82f6;
+      --green:   #22c55e;
+      --amber:   #f59e0b;
+      --red:     #ef4444;
+      --violet:  #8b5cf6;
+      --freq-c:  #38bdf8;
+      --amp-c:   #fb923c;
+      --sine-c:  #a78bfa;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .header-brand { display: flex; flex-direction: column; gap: 0.1rem; }
+    h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.03em; }
+    h1 .brand-k { color: var(--violet); }
+    .header-sub { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.04em; }
+
+    /* ── Status badge ── */
+    #status-badge {
+      display: flex; align-items: center;
+      gap: 0.5rem; font-size: 0.8rem; color: var(--muted);
+    }
+    #status-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--muted); transition: background 0.3s;
+    }
+    #status-dot.connecting { background: var(--amber); animation: pulse 1s infinite; }
+    #status-dot.connected  { background: var(--green); }
+    #status-dot.error      { background: var(--red); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 0.45rem 1.1rem;
+      border-radius: 8px; border: 1px solid;
+      font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s, color 0.2s, opacity 0.2s;
+      background: transparent;
+    }
+    .btn:active  { opacity: 0.8; }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-blue  { border-color: var(--blue);   color: var(--blue);   }
+    .btn-blue:not(:disabled):hover   { background: var(--blue);   color: #fff; }
+    .btn-green { border-color: var(--green);  color: var(--green);  }
+    .btn-green:not(:disabled):hover  { background: var(--green);  color: #fff; }
+    .btn-amber { border-color: var(--amber);  color: var(--amber);  }
+    .btn-amber:not(:disabled):hover  { background: var(--amber);  color: #fff; }
+    .btn-ghost { border-color: var(--border); color: var(--muted);  }
+    .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+
+    /* ── Metrics ── */
+    .metrics {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1rem; margin-bottom: 1rem;
+    }
+    .metric-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem 1.5rem;
+    }
+    .metric-label {
+      font-size: 0.7rem; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.4rem;
+    }
+    .metric-value {
+      font-size: 2.4rem; font-weight: 700;
+      line-height: 1; font-variant-numeric: tabular-nums;
+    }
+    .metric-value.freq { color: var(--freq-c); }
+    .metric-value.amp  { color: var(--amp-c);  }
+    .metric-unit { font-size: 0.85rem; color: var(--muted); margin-top: 0.3rem; }
+
+    /* ── Action bar ── */
+    .actions {
+      display: flex; align-items: center;
+      gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem;
+    }
+    #history-count { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+
+    /* ── Charts ── */
+    .charts { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem;
+    }
+    .chart-title {
+      font-size: 0.75rem; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.25rem;
+    }
+    .chart-subtitle {
+      font-size: 0.8rem; color: var(--sine-c);
+      margin-bottom: 0.75rem; font-variant-numeric: tabular-nums; min-height: 1.2em;
+    }
+    .chart-wrap        { position: relative; height: 160px; }
+    .chart-wrap.sine-h { height: 200px; }
+
+    /* ── Warning banners ── */
+    .warn-banner {
+      display: none; border-radius: 10px;
+      padding: 1rem 1.25rem; font-size: 0.85rem;
+      margin-bottom: 1rem; line-height: 1.6;
+    }
+    #unsupported { background: #3b1c1c; border: 1px solid var(--red);   color: #fca5a5; }
+    #warn-https  { background: #2d2310; border: 1px solid var(--amber); color: #fde68a; }
+
+    /* ── Debug strip ── */
+    #debug-strip {
+      background: #111318; border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.75rem 1rem;
+      font-size: 0.72rem; font-family: 'Courier New', monospace;
+      color: var(--muted); margin-bottom: 1rem; line-height: 1.8;
+    }
+    #debug-strip span { color: var(--text); }
+
+    /* ── Help modal overlay ── */
+    #help-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.72);
+      align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    #help-overlay.open { display: flex; }
+    #help-panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 2rem;
+      max-width: 520px; width: 100%;
+      max-height: 85vh; overflow-y: auto;
+    }
+    #help-panel h2 {
+      font-size: 1rem; font-weight: 700; margin-bottom: 1.2rem;
+      color: var(--violet);
+    }
+    #help-panel h3 {
+      font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--muted);
+      margin: 1.2rem 0 0.5rem;
+    }
+    #help-panel p, #help-panel li {
+      font-size: 0.85rem; color: var(--text);
+      line-height: 1.65; margin-bottom: 0.3rem;
+    }
+    #help-panel ul { padding-left: 1.1rem; }
+    #help-panel code {
+      font-family: 'Courier New', monospace;
+      background: #0f1117; border-radius: 4px;
+      padding: 0.1em 0.35em; font-size: 0.8rem; color: var(--freq-c);
+    }
+    #help-close {
+      float: right; margin-top: -0.25rem;
+      font-size: 1.2rem; background: none; border: none;
+      color: var(--muted); cursor: pointer; line-height: 1;
+    }
+    #help-close:hover { color: var(--text); }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 1.5rem; font-size: 0.7rem;
+      color: var(--muted); text-align: center; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Help modal ─────────────────────────────────────────────── -->
+<div id="help-overlay" role="dialog" aria-modal="true">
+  <div id="help-panel">
+    <button id="help-close" aria-label="Close help">✕</button>
+    <h2>KMSENSE Motion Analyzer — User Manual</h2>
+
+    <h3>System Overview</h3>
+    <p>This motion analyzer, developed by KMSENSE, is used for frequency-domain analysis of harmonic motions, vibrations, tremors, etc.</p>
+
+    <h3>How to Connect</h3>
+    <ul>
+      <li>Open this page in <strong>Chrome on Android</strong> (v85+).</li>
+      <li>Grant <strong>Bluetooth and Location</strong> permissions when prompted.</li>
+      <li>Power on the PCB and press <strong>Connect</strong>.</li>
+      <li>Select your device from the system Bluetooth picker.</li>
+      <li>Data begins arriving within one FFT window (~5 s after warm-up).</li>
+    </ul>
+
+    <h3>What the Metrics Mean</h3>
+    <ul>
+      <li><strong>Frequency (Hz)</strong> — dominant oscillation frequency of the system (range: 1–5 Hz).
+          Detected via FFT peak with quadratic interpolation; resolution ≈ 0.2 Hz.</li>
+      <li><strong>Amplitude (mg)</strong> — peak acceleration of the oscillation (milli-g).
+          Computed as peak-to-peak of the bandpass-filtered signal divided by 2.</li>
+    </ul>
+
+    <h3>Waveform Chart (live)</h3>
+    <p>Shows the reconstructed signal <code>A · sin(2π · f · t)</code> for the
+       <strong>last 5 FFT windows (~25 s)</strong> on a rolling basis.
+       Wider cycles = lower frequency; taller envelope = higher amplitude.</p>
+
+    <h3>Exporting Data</h3>
+    <ul>
+      <li><strong>Export JSON</strong> — downloads a <code>.json</code> file with all measurements,
+          timestamps, and summary metadata. Suitable for post-processing in Python / MATLAB.</li>
+      <li><strong>Export PDF</strong> — generates a report with summary statistics, full measurement
+          table, and stitched waveform charts (one chart per 5-window group) covering the entire session.</li>
+    </ul>
+
+    <h3>Packet Format</h3>
+    <p>BLE notifications arrive as ASCII: <code>freq_hz,amplitude_mg\n</code><br>
+       Example: <code>2.347,83.21\n</code></p>
+
+    <h3>Requirements</h3>
+    <ul>
+      <li>Chrome on Android (Web Bluetooth API required).</li>
+      <li>Page must be served over <strong>HTTPS</strong> (Netlify, GitHub Pages, etc.).</li>
+      <li>Bluetooth and Location permissions must be granted.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<header>
+  <div class="header-brand">
+    <h1><span class="brand-k">KM</span>SENSE Motion Analyzer</h1>
+    <div class="header-sub">Developed by KMSENSE</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+    <div id="status-badge">
+      <div id="status-dot"></div>
+      <span id="status-text">Disconnected</span>
+    </div>
+    <button id="btn-help"    class="btn btn-ghost">? Help</button>
+    <button id="btn-connect" class="btn btn-blue">Connect</button>
+  </div>
+</header>
+
+<div id="debug-strip">
+  📡 Notifications: <span id="dbg-count">0</span> &nbsp;|&nbsp;
+  Last raw: <span id="dbg-raw">—</span> &nbsp;|&nbsp;
+  Parse: <span id="dbg-parse">—</span> &nbsp;|&nbsp;
+  Last pkt: <span id="dbg-age">—</span>
+</div>
+
+<div id="warn-https" class="warn-banner">
+  ⚠️ <strong>HTTPS required.</strong> Web Bluetooth does not work on <code>file://</code> or plain <code>http://</code>.<br>
+  Open this page via <strong>Netlify / GitHub Pages</strong> (https://…).
+</div>
+<div id="unsupported" class="warn-banner">
+  ⚠️ <strong>Web Bluetooth not supported.</strong><br>
+  Use <strong>Chrome for Android</strong> (v85+) with Bluetooth &amp; Location permissions granted.
+</div>
+
+<!-- Big number cards -->
+<div class="metrics">
+  <div class="metric-card">
+    <div class="metric-label">Frequency</div>
+    <div class="metric-value freq" id="val-freq">—</div>
+    <div class="metric-unit">Hz</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Amplitude</div>
+    <div class="metric-value amp" id="val-amp">—</div>
+    <div class="metric-unit">mg</div>
+  </div>
+</div>
+
+<!-- Action buttons -->
+<div class="actions">
+  <button id="btn-json" class="btn btn-green" disabled>Export JSON</button>
+  <button id="btn-pdf"  class="btn btn-amber" disabled>Export PDF</button>
+  <span id="history-count">0 measurements recorded</span>
+</div>
+
+<!-- Charts -->
+<div class="charts">
+
+  <!-- 1. Live waveform — last 5 windows (FIFO) — dashboard shows this first -->
+  <div class="chart-card">
+    <div class="chart-title">Waveform — last 5 windows · A · sin(2πft) · rolling</div>
+    <div class="chart-subtitle" id="sine-subtitle">Waiting for first measurement…</div>
+    <div class="chart-wrap sine-h"><canvas id="chart-sine"></canvas></div>
+  </div>
+
+  <!-- 2. Frequency history -->
+  <div class="chart-card">
+    <div class="chart-title">Frequency over time (Hz)</div>
+    <div class="chart-wrap"><canvas id="chart-freq"></canvas></div>
+  </div>
+
+  <!-- 3. Amplitude history -->
+  <div class="chart-card">
+    <div class="chart-title">Amplitude over time (mg)</div>
+    <div class="chart-wrap"><canvas id="chart-amp"></canvas></div>
+  </div>
+
+</div>
+
+<footer>
+  KMSENSE Motion Analyzer · Chrome on Android · HTTPS required<br>
+  Packet: <code>freq_hz,amplitude_mg\n</code> · FFT window 5.12 s · Dashboard shows last 5 windows rolling · PDF shows full history
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+//  BLE CONFIGURATION
+//  Service 0xFFF0 / Characteristic 0xFFF1 (NOTIFY) — confirmed via nRF Connect
+// ─────────────────────────────────────────────────────────────────
+const BLE = {
+  SERVICE_UUID: '0000fff0-0000-1000-8000-00805f9b34fb',
+  CHAR_UUID:    '0000fff1-0000-1000-8000-00805f9b34fb',
+};
+
+// ─────────────────────────────────────────────────────────────────
+//  CONSTANTS
+// ─────────────────────────────────────────────────────────────────
+const WINDOW_DURATION   = 5.12;  // seconds per FFT window (256 samples / 50 Hz)
+const PTS_PER_SEG       = 400;   // sine points per window — needs enough for smooth curves at max freq
+                                 // pts/cycle = PTS_PER_SEG / (freq × WINDOW_DURATION)
+                                 // @ 4 Hz  → 400 / (4  × 5.12) ≈ 20 pts/cycle  ✓
+                                 // @ 10 Hz → 400 / (10 × 5.12) ≈  8 pts/cycle  ✓ (bezier tension fills gaps)
+const MAX_SINE_WINDOWS  = 5;     // live chart keeps last N windows (FIFO)
+const MAX_HISTORY_CHART = 60;    // freq/amp charts keep last N points
+const PDF_GROUP_SIZE    = 5;     // waveform windows per chart in PDF report
+
+// ─────────────────────────────────────────────────────────────────
+//  MEASUREMENT HISTORY
+// ─────────────────────────────────────────────────────────────────
+const history = [];  // { ts, iso, freq, amp }
+
+const historyCountEl = document.getElementById('history-count');
+function updateHistoryCount() {
+  const n = history.length;
+  historyCountEl.textContent = `${n} measurement${n !== 1 ? 's' : ''} recorded`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  CHART — FREQUENCY & AMPLITUDE HISTORY
+// ─────────────────────────────────────────────────────────────────
+function makeHistoryChart(canvasId, color) {
+  return new Chart(document.getElementById(canvasId).getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        data: [],
+        borderColor: color,
+        backgroundColor: color + '18',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 200 },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { color: '#2a2d3a' } },
+        y: { ticks: { color: '#64748b', font: { size: 10 } },                   grid: { color: '#2a2d3a' } },
+      }
+    }
+  });
+}
+
+const freqChart = makeHistoryChart('chart-freq', '#38bdf8');
+const ampChart  = makeHistoryChart('chart-amp',  '#fb923c');
+
+function pushHistory(chart, label, value) {
+  chart.data.labels.push(label);
+  chart.data.datasets[0].data.push(value);
+  if (chart.data.labels.length > MAX_HISTORY_CHART) {
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+  chart.update('none');
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  CHART — LIVE WAVEFORM (rolling FIFO, last MAX_SINE_WINDOWS)
+// ─────────────────────────────────────────────────────────────────
+const sineLabels = [];
+const sineData   = [];
+
+const sineChart = new Chart(document.getElementById('chart-sine').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      data: [],
+      borderColor: '#a78bfa',
+      backgroundColor: 'rgba(167,139,250,0.07)',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.4,
+      fill: true,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    animation: { duration: 0 },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: { color: '#64748b', maxTicksLimit: 8, font: { size: 10 }, autoSkip: true },
+        grid:  { color: '#1e2130' },
+        title: { display: true, text: 'time  (each labelled tick = start of an FFT window)', color: '#64748b', font: { size: 9 } },
+      },
+      y: {
+        ticks: { color: '#64748b', font: { size: 10 } },
+        grid:  { color: '#2a2d3a' },
+        title: { display: true, text: 'mg', color: '#64748b', font: { size: 10 } },
+      }
+    }
+  }
+});
+
+// Append one segment to the live chart, evict oldest if > MAX_SINE_WINDOWS.
+function appendSineSegment(ts, freqHz, ampMg) {
+  const segIndex = history.length - 1;
+
+  for (let j = 0; j < PTS_PER_SEG; j++) {
+    const t = (segIndex + j / PTS_PER_SEG) * WINDOW_DURATION;
+    sineLabels.push(j === 0 ? ts : '');
+    sineData.push(ampMg * Math.sin(2 * Math.PI * freqHz * t));
+  }
+
+  // FIFO — trim front when we exceed the window cap
+  const maxPts = MAX_SINE_WINDOWS * PTS_PER_SEG;
+  if (sineLabels.length > maxPts) {
+    sineLabels.splice(0, sineLabels.length - maxPts);
+    sineData.splice(0, sineData.length   - maxPts);
+  }
+
+  sineChart.data.labels           = sineLabels;
+  sineChart.data.datasets[0].data = sineData;
+  sineChart.update('none');
+
+  document.getElementById('sine-subtitle').textContent =
+    `Latest:  f = ${freqHz.toFixed(3)} Hz   A = ${ampMg.toFixed(1)} mg` +
+    `   |   Total: ${(history.length * WINDOW_DURATION).toFixed(1)} s  (${history.length} windows)`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  PDF HELPER — render a group of measurements to an offscreen canvas
+//  Returns a PNG data-URL suitable for jsPDF.addImage().
+//  Light background so waveforms are visible on printed paper.
+// ─────────────────────────────────────────────────────────────────
+function renderWaveGroup(group, globalOffset) {
+  const CW = 900, CH = 180;
+  const c   = document.createElement('canvas');
+  c.width = CW; c.height = CH;
+  const ctx = c.getContext('2d');
+
+  // Background + zero-line
+  ctx.fillStyle = '#f7f8fb';
+  ctx.fillRect(0, 0, CW, CH);
+  ctx.strokeStyle = '#d1d5db';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, CH / 2); ctx.lineTo(CW, CH / 2); ctx.stroke();
+
+  // Generate points for all segments in this group
+  const pts = [];
+  for (let i = 0; i < group.length; i++) {
+    const { freq, amp } = group[i];
+    for (let j = 0; j < PTS_PER_SEG; j++) {
+      const t = (globalOffset + i + j / PTS_PER_SEG) * WINDOW_DURATION;
+      pts.push(amp * Math.sin(2 * Math.PI * freq * t));
+    }
+  }
+
+  // Scale: use max amplitude across group for consistent Y axis
+  const maxAmp = Math.max(...group.map(m => m.amp), 1);
+  const scaleY = (CH * 0.42) / maxAmp;
+
+  // Waveform
+  ctx.strokeStyle = '#7c3aed';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  pts.forEach((v, i) => {
+    const x = (i / (pts.length - 1)) * CW;
+    const y = CH / 2 - v * scaleY;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Window boundary markers
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  for (let i = 1; i < group.length; i++) {
+    const x = Math.round((i * PTS_PER_SEG / pts.length) * CW);
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CH); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Timestamp labels at each segment boundary
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px sans-serif';
+  for (let i = 0; i < group.length; i++) {
+    const x = (i * PTS_PER_SEG / pts.length) * CW + 4;
+    ctx.fillText(`${group[i].ts}  ${group[i].freq.toFixed(2)}Hz / ${group[i].amp.toFixed(0)}mg`, x, CH - 6);
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px sans-serif';
+  ctx.fillText(`+${maxAmp.toFixed(0)} mg`, 4, 14);
+  ctx.fillText(`−${maxAmp.toFixed(0)} mg`, 4, CH - 4);
+
+  return c.toDataURL('image/png');
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  UI HELPERS
+// ─────────────────────────────────────────────────────────────────
+const dot        = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
+const btnConnect = document.getElementById('btn-connect');
+const valFreq    = document.getElementById('val-freq');
+const valAmp     = document.getElementById('val-amp');
+const btnJson    = document.getElementById('btn-json');
+const btnPdf     = document.getElementById('btn-pdf');
+const dbgCount   = document.getElementById('dbg-count');
+const dbgRaw     = document.getElementById('dbg-raw');
+const dbgParse   = document.getElementById('dbg-parse');
+const dbgAge     = document.getElementById('dbg-age');
+
+function setStatus(state, text) {
+  dot.className = state;
+  statusText.textContent = text;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  WATCHDOG — shows seconds since last BLE packet
+// ─────────────────────────────────────────────────────────────────
+let lastPacketTime = null;
+setInterval(() => {
+  if (!lastPacketTime) return;
+  const age = Math.round((Date.now() - lastPacketTime) / 1000);
+  dbgAge.textContent = `${age}s ago`;
+  dbgAge.style.color = age > 30 ? 'var(--amber)' : '';
+}, 1000);
+
+// ─────────────────────────────────────────────────────────────────
+//  DATA PARSING
+// ─────────────────────────────────────────────────────────────────
+let rxBuffer = '';
+let pktCount = 0;
+
+function onData(event) {
+  const chunk = new TextDecoder('utf-8').decode(event.target.value);
+  pktCount++;
+  lastPacketTime = Date.now();
+  dbgCount.textContent = pktCount;
+  dbgRaw.textContent   = JSON.stringify(chunk);
+
+  rxBuffer += chunk;
+  let nl;
+  while ((nl = rxBuffer.indexOf('\n')) !== -1) {
+    const line = rxBuffer.slice(0, nl).trim();
+    rxBuffer   = rxBuffer.slice(nl + 1);
+    parseLine(line);
+  }
+  // Fallback for modules that omit \n
+  if (rxBuffer.includes(',') && !rxBuffer.includes('\n')) {
+    parseLine(rxBuffer.trim());
+    rxBuffer = '';
+  }
+}
+
+function parseLine(line) {
+  if (!line) return;
+  const parts = line.split(',');
+  if (parts.length < 2) { dbgParse.textContent = `bad format: "${line}"`; return; }
+  const freq = parseFloat(parts[0]);
+  const amp  = parseFloat(parts[1]);
+  if (isNaN(freq) || isNaN(amp)) { dbgParse.textContent = `NaN: "${line}"`; return; }
+
+  dbgParse.textContent = `OK → ${freq.toFixed(3)} Hz, ${amp.toFixed(1)} mg`;
+
+  valFreq.textContent = freq.toFixed(3);
+  valAmp.textContent  = amp.toFixed(1);
+
+  const now = new Date();
+  const ts  = now.toTimeString().slice(0, 8);
+
+  history.push({ ts, iso: now.toISOString(), freq, amp });
+  updateHistoryCount();
+  btnJson.disabled = false;
+  btnPdf.disabled  = false;
+
+  pushHistory(freqChart, ts, freq);
+  pushHistory(ampChart,  ts, amp);
+  appendSineSegment(ts, freq, amp);
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  EXPORT — JSON
+// ─────────────────────────────────────────────────────────────────
+function exportJSON() {
+  if (!history.length) return;
+  const payload = {
+    title:        'KMSENSE Motion Analyzer — Measurement Export',
+    exported_at:  new Date().toISOString(),
+    device:       bleDevice ? (bleDevice.name || 'nRF52') : 'nRF52',
+    window_s:     WINDOW_DURATION,
+    sample_count: history.length,
+    measurements: history.map(m => ({
+      time: m.ts, iso: m.iso, freq_hz: m.freq, amp_mg: m.amp,
+    })),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `kmsense_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  EXPORT — PDF
+// ─────────────────────────────────────────────────────────────────
+function exportPDF() {
+  if (!history.length) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W   = doc.internal.pageSize.getWidth();
+  const PH  = doc.internal.pageSize.getHeight();
+  const mar = 18;
+  let y = mar;
+
+  const pageFooter = (data) => {
+    const n = doc.internal.getNumberOfPages();
+    doc.setFontSize(8); doc.setTextColor(160, 160, 160);
+    doc.text(`KMSENSE Motion Analyzer  ·  Page ${data.pageNumber} of ${n}`,
+      W / 2, PH - 8, { align: 'center' });
+  };
+
+  // ── Title ──
+  doc.setFontSize(18); doc.setTextColor(30, 30, 30);
+  doc.text('KMSENSE Motion Analyzer Report', mar, y);
+  y += 7;
+  doc.setFontSize(9); doc.setTextColor(100, 100, 100);
+  doc.text(
+    `Generated: ${new Date().toLocaleString()}   |   Device: ${bleDevice ? (bleDevice.name || 'nRF52') : 'nRF52'}`,
+    mar, y
+  );
+  y += 4;
+  doc.setDrawColor(200, 200, 200);
+  doc.line(mar, y, W - mar, y);
+  y += 7;
+
+  // ── Summary statistics ──
+  const freqs = history.map(m => m.freq);
+  const amps  = history.map(m => m.amp);
+  const mean  = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+  doc.setFontSize(11); doc.setTextColor(30, 30, 30);
+  doc.text('Summary Statistics', mar, y);
+  y += 2;
+
+  doc.autoTable({
+    startY: y, margin: { left: mar, right: mar },
+    head: [['', 'Min', 'Max', 'Mean']],
+    body: [
+      ['Frequency (Hz)',  Math.min(...freqs).toFixed(3), Math.max(...freqs).toFixed(3), mean(freqs).toFixed(3)],
+      ['Amplitude (mg)',  Math.min(...amps).toFixed(1),  Math.max(...amps).toFixed(1),  mean(amps).toFixed(1)],
+      ['Total windows',  history.length, '', ''],
+      ['Total duration', `${(history.length * WINDOW_DURATION).toFixed(1)} s`, '', ''],
+    ],
+    headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 9 },
+    bodyStyles: { fontSize: 9, textColor: [30, 30, 30] },
+    alternateRowStyles: { fillColor: [245, 245, 250] },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 } },
+    didDrawPage: pageFooter,
+  });
+  y = doc.lastAutoTable.finalY + 8;
+
+  // ── Measurement history table ──
+  doc.setFontSize(11); doc.setTextColor(30, 30, 30);
+  doc.text('Measurement History', mar, y);
+  y += 2;
+
+  doc.autoTable({
+    startY: y, margin: { left: mar, right: mar },
+    head: [['#', 'Time', 'Freq (Hz)', 'Amp (mg)']],
+    body: history.map((m, i) => [i + 1, m.ts, m.freq.toFixed(3), m.amp.toFixed(1)]),
+    headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 9 },
+    bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
+    alternateRowStyles: { fillColor: [245, 245, 250] },
+    columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 28 }, 2: { cellWidth: 35 }, 3: { cellWidth: 35 } },
+    didDrawPage: pageFooter,
+  });
+
+  // ── Waveform charts — one per PDF_GROUP_SIZE windows, all at the end ──
+  doc.addPage();
+  y = mar;
+  doc.setFontSize(13); doc.setTextColor(30, 30, 30);
+  doc.text('Waveform History — Stitched Reconstruction', mar, y);
+  y += 4;
+  doc.setFontSize(8); doc.setTextColor(100, 100, 100);
+  doc.text(
+    `A · sin(2πft) on global time axis · ${PDF_GROUP_SIZE} windows per chart · vertical dashes = window boundaries`,
+    mar, y
+  );
+  y += 6;
+  doc.line(mar, y - 1, W - mar, y - 1);
+  y += 4;
+
+  const IMG_H = 48;  // mm per chart in PDF
+
+  for (let g = 0; g < history.length; g += PDF_GROUP_SIZE) {
+    const group = history.slice(g, g + PDF_GROUP_SIZE);
+
+    // New page if this chart won't fit
+    if (y + IMG_H + 14 > PH - 14) {
+      doc.addPage();
+      y = mar;
+      doc.setFontSize(8); doc.setTextColor(160, 160, 160);
+      doc.text(
+        `KMSENSE Motion Analyzer  ·  Page ${doc.internal.getNumberOfPages()}`,
+        W / 2, PH - 8, { align: 'center' }
+      );
+    }
+
+    // Section label
+    doc.setFontSize(9); doc.setTextColor(30, 30, 30);
+    doc.text(
+      `Windows ${g + 1}–${g + group.length}  ·  ${group[0].ts} → ${group[group.length - 1].ts}`,
+      mar, y
+    );
+    y += 4;
+
+    const imgData = renderWaveGroup(group, g);
+    doc.addImage(imgData, 'PNG', mar, y, W - mar * 2, IMG_H);
+    y += IMG_H + 8;
+  }
+
+  doc.save(`kmsense_report_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+btnJson.addEventListener('click', exportJSON);
+btnPdf.addEventListener('click', exportPDF);
+
+// ─────────────────────────────────────────────────────────────────
+//  HELP MODAL
+// ─────────────────────────────────────────────────────────────────
+const helpOverlay = document.getElementById('help-overlay');
+document.getElementById('btn-help').addEventListener('click',  () => helpOverlay.classList.add('open'));
+document.getElementById('help-close').addEventListener('click', () => helpOverlay.classList.remove('open'));
+helpOverlay.addEventListener('click', e => { if (e.target === helpOverlay) helpOverlay.classList.remove('open'); });
+
+// ─────────────────────────────────────────────────────────────────
+//  BLE CONNECTION
+// ─────────────────────────────────────────────────────────────────
+let bleDevice = null;
+let bleChar   = null;
+let intentionalDisconnect = false;
+
+async function connectGatt() {
+  const server  = await bleDevice.gatt.connect();
+  const service = await server.getPrimaryService(BLE.SERVICE_UUID);
+  bleChar        = await service.getCharacteristic(BLE.CHAR_UUID);
+  await bleChar.startNotifications();
+  bleChar.addEventListener('characteristicvaluechanged', onData);
+  setStatus('connected', `Connected · ${bleDevice.name || 'nRF52'}`);
+  btnConnect.textContent = 'Disconnect';
+  btnConnect.disabled    = false;
+}
+
+async function connect() {
+  if (!navigator.bluetooth) {
+    document.getElementById('unsupported').style.display = 'block';
+    return;
+  }
+  try {
+    intentionalDisconnect = false;
+    setStatus('connecting', 'Pick your device in the dialog…');
+    btnConnect.disabled = true;
+
+    bleDevice = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [BLE.SERVICE_UUID],
+    });
+    bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+    setStatus('connecting', 'Connecting…');
+    await connectGatt();
+
+  } catch (err) {
+    console.error(err);
+    let msg = err.message || String(err);
+    if      (/disallowed|permissions policy/i.test(msg)) { msg = 'Blocked — must be served over HTTPS'; document.getElementById('warn-https').style.display = 'block'; }
+    else if (/cancel/i.test(msg))                         { msg = 'Cancelled'; }
+    else if (/not found/i.test(msg))                      { msg = 'Service UUID not found on device'; }
+    setStatus('error', msg);
+    btnConnect.textContent = 'Connect';
+    btnConnect.disabled    = false;
+  }
+}
+
+async function disconnect() {
+  intentionalDisconnect = true;
+  if (bleChar) { try { await bleChar.stopNotifications(); } catch (_) {} bleChar = null; }
+  if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
+}
+
+function onDisconnected() {
+  bleChar = null;
+  btnConnect.textContent = 'Connect';
+  btnConnect.disabled    = false;
+
+  if (intentionalDisconnect) {
+    setStatus('', 'Disconnected');
+    bleDevice = null;
+    return;
+  }
+
+  // Auto-reconnect
+  setStatus('connecting', 'Signal lost — reconnecting…');
+  setTimeout(async () => {
+    if (!bleDevice) return;
+    try {
+      await connectGatt();
+    } catch (e) {
+      setStatus('error', 'Reconnect failed — press Connect to retry');
+      bleDevice = null;
+    }
+  }, 3000);
+}
+
+btnConnect.addEventListener('click', () => {
+  btnConnect.textContent === 'Disconnect' ? disconnect() : connect();
+});
+
+// ─────────────────────────────────────────────────────────────────
+//  STARTUP CHECKS
+// ─────────────────────────────────────────────────────────────────
+const isSecure = location.protocol === 'https:' || location.hostname === 'localhost';
+if (!isSecure) {
+  document.getElementById('warn-https').style.display = 'block';
+  btnConnect.disabled = true;
+} else if (!navigator.bluetooth) {
+  document.getElementById('unsupported').style.display = 'block';
+  btnConnect.disabled = true;
+}
+</script>
+
+</body>
+</html>
