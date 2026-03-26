@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Karakamlar CoG Analyzer v3.3</title>
+    <style>
+        :root { --accent: #00e5ff; --bg: #101014; --panel: #1c1c22; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: #f0f0f0; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .main-container { display: flex; gap: 20px; background: var(--panel); padding: 25px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.7); border: 1px solid #333; }
+        .controls { width: 360px; display: flex; flex-direction: column; gap: 12px; }
+        .input-group { background: #26262e; padding: 12px; border-radius: 10px; border-left: 4px solid var(--accent); }
+        label { display: block; font-size: 11px; font-weight: bold; color: #888; text-transform: uppercase; margin-bottom: 6px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 6px; background: #0c0c0e; color: var(--accent); font-family: 'Consolas', monospace; box-sizing: border-box; font-size: 14px; }
+        .results { background: #000; padding: 18px; border-radius: 10px; border: 1px solid #333; margin-top: 10px; box-shadow: inset 0 0 15px rgba(0,229,255,0.05); }
+        .results p { margin: 8px 0; font-size: 13px; display: flex; justify-content: space-between; border-bottom: 1px solid #1a1a1a; padding-bottom: 4px; }
+        .val { color: var(--accent); font-weight: bold; }
+        canvas { background: #050505; border-radius: 15px; border: 1px solid #333; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; color: var(--accent); font-weight: 300; letter-spacing: 4px; text-align: center; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<h2>KARAKAMLAR COG PRO v3.3</h2>
+
+<div class="main-container">
+    <div class="controls">
+        <div class="input-group">
+            <label>Ölçüm Stratejisi</label>
+            <select id="mode_select">
+                <option value="2plus1">2+1 (X-Yüzeyi Eğimli)</option>
+                <option value="1plus2">1+2 (Y-Yüzeyi Eğimli)</option>
+                <option value="quad">4-Taraflı (Klasik)</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Cisim Boyutları (dx, dy) [mm]</label>
+            <div style="display:flex; gap:8px;">
+                <input type="number" id="dx" value="200">
+                <input type="number" id="dy" value="100">
+            </div>
+        </div>
+
+        <div id="isostatic_inputs">
+            <div class="input-group">
+                <label>Prob Aralığı (d) [mm]</label>
+                <input type="number" id="probe_d" value="50">
+            </div>
+            <div id="dynamic_labels" class="input-group">
+                </div>
+        </div>
+
+        <div id="quad_inputs" class="hidden">
+            <div class="input-group">
+                <label>Kumpas Temas (+x, -x, +y, -y)</label>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                    <input type="number" id="qx1" value="105">
+                    <input type="number" id="qx2" value="105">
+                    <input type="number" id="qy1" value="55">
+                    <input type="number" id="qy2" value="55">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Açı Yönü (+z Etrafında)</label>
+                <select id="theta_sign">
+                    <option value="1">Pozitif (+ CCW)</option>
+                    <option value="-1">Negatif (- CW)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Cihaz Kütle Merkezi (xcg, ycg)</label>
+            <div style="display:flex; gap:8px;">
+                <input type="number" id="xcgc" value="10" step="0.01">
+                <input type="number" id="ycgc" value="5" step="0.01">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Tabla Boyutu [mm]</label>
+            <input type="number" id="ts" value="400">
+        </div>
+
+        <div class="results">
+            <p>Hesaplanan Açı: <span id="res_theta" class="val">-</span></p>
+            <p>Geometrik Merkez (x0, y0): <span id="res_off" class="val">-</span></p>
+            <p style="border-top: 1px dashed #333; margin-top:10px; padding-top:5px;">Lokal CoG X: <span id="res_lcgx" class="val">-</span></p>
+            <p>Lokal CoG Y: <span id="res_lcgy" class="val">-</span></p>
+        </div>
+    </div>
+
+    <canvas id="canvas" width="650" height="650"></canvas>
+</div>
+
+<script>
+    const ids = ['mode_select','dx','dy','probe_d','xcgc','ycgc','ts','theta_sign','qx1','qx2','qy1','qy2'];
+    
+    // Dinamik input alanlarını oluşturmak için
+    function updateInputs() {
+        const mode = document.getElementById('mode_select').value;
+        const container = document.getElementById('dynamic_labels');
+        
+        if (mode === '2plus1') {
+            container.innerHTML = `
+                <label>X-Probları (y=0, y=d) ve Y-Probu (x=0)</label>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; margin-bottom:10px;">
+                    <input type="number" id="xp1" value="115" title="P1 (X-yüzeyi @ y=0)">
+                    <input type="number" id="xp2" value="112" title="P2 (X-yüzeyi @ y=d)">
+                </div>
+                <input type="number" id="yp1" value="65" title="P3 (Y-yüzeyi @ x=0)">
+            `;
+        } else if (mode === '1plus2') {
+            container.innerHTML = `
+                <label>X-Probu (y=0) ve Y-Probları (x=0, x=d)</label>
+                <input type="number" id="xp1" value="115" title="P3 (X-yüzeyi @ y=0)" style="margin-bottom:10px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+                    <input type="number" id="yp1" value="65" title="P1 (Y-yüzeyi @ x=0)">
+                    <input type="number" id="yp2" value="60" title="P2 (Y-yüzeyi @ x=d)">
+                </div>
+            `;
+        }
+        
+        // Yeni eklenen inputlara event listener bağla
+        container.querySelectorAll('input').forEach(el => el.addEventListener('input', calculate));
+    }
+
+    ids.forEach(id => document.getElementById(id).addEventListener('input', () => {
+        if (id === 'mode_select') updateInputs();
+        calculate();
+    }));
+
+function calculate() {
+    const mode = document.getElementById('mode_select').value;
+    const dx = parseFloat(document.getElementById('dx').value) || 1;
+    const dy = parseFloat(document.getElementById('dy').value) || 1;
+    const xcgc = parseFloat(document.getElementById('xcgc').value) || 0;
+    const ycgc = parseFloat(document.getElementById('ycgc').value) || 0;
+    const ts = parseFloat(document.getElementById('ts').value) || 400;
+
+    document.getElementById('isostatic_inputs').classList.toggle('hidden', mode === 'quad');
+    document.getElementById('quad_inputs').classList.toggle('hidden', mode !== 'quad');
+
+    let theta = 0, x0 = 0, y0 = 0, pts = [];
+
+    if (mode === '2plus1') {
+        const d = parseFloat(document.getElementById('probe_d').value) || 1;
+        const xp1 = parseFloat(document.getElementById('xp1')?.value) || 0;
+        const xp2 = parseFloat(document.getElementById('xp2')?.value) || 0;
+        const yp1 = parseFloat(document.getElementById('yp1')?.value) || 0;
+
+        // X-yüzeyi eğimi üzerinden açı
+        theta = Math.atan((xp1 - xp2) / d);
+        const ct = Math.cos(theta), st = Math.sin(theta);
+        
+        // Köşe (Intersection) Hesabı
+        const cornerX = xp1 * ct * ct - yp1 * st * ct;
+        const cornerY = yp1 * ct * ct + xp1 * st * ct;
+        
+        x0 = cornerX - (dx/2)*ct + (dy/2)*st;
+        y0 = cornerY - (dx/2)*st - (dy/2)*ct;
+        pts = [{x:xp1, y:0, l:'P1'}, {x:xp2, y:d, l:'P2'}, {x:0, y:yp1, l:'P3'}];
+
+    } else if (mode === '1plus2') {
+        const d = parseFloat(document.getElementById('probe_d').value) || 1;
+        const xp1 = parseFloat(document.getElementById('xp1')?.value) || 0; // Tekli X probu
+        const yp1 = parseFloat(document.getElementById('yp1')?.value) || 0; // Referans Y
+        const yp2 = parseFloat(document.getElementById('yp2')?.value) || 0; // Eğim Y
+
+        // Y-yüzeyi eğimi üzerinden açı: tan(theta) = (yp1 - yp2) / d
+        theta = Math.atan((yp1 - yp2) / d);
+        const ct = Math.cos(theta), st = Math.sin(theta);
+        
+        // Köşe hesaplama mantığı aynı, ancak yp1 referans alınır
+        const cornerX = xp1 * ct * ct - yp1 * st * ct;
+        const cornerY = yp1 * ct * ct + xp1 * st * ct;
+        
+        x0 = cornerX - (dx/2)*ct + (dy/2)*st;
+        y0 = cornerY - (dx/2)*st - (dy/2)*ct;
+        pts = [{x:0, y:yp1, l:'P1'}, {x:d, y:yp2, l:'P2'}, {x:xp1, y:0, l:'P3'}];
+
+    } else {
+        // Klasik 4 taraflı mod
+        const x1 = parseFloat(document.getElementById('qx1').value);
+        const x2 = parseFloat(document.getElementById('qx2').value);
+        const y1 = parseFloat(document.getElementById('qy1').value);
+        const y2 = parseFloat(document.getElementById('qy2').value);
+        const s = parseFloat(document.getElementById('theta_sign').value);
+
+        theta = Math.acos(dx / (x1 + x2)) * s;
+        x0 = (x1 - x2) / 2;
+        y0 = (y1 - y2) / 2;
+        pts = [{x:x1, y:0, l:'+X'}, {x:-x2, y:0, l:'-X'}, {x:0, y:y1, l:'+Y'}, {x:0, y:-y2, l:'-Y'}];
+    }
+
+    const ct = Math.cos(theta), st = Math.sin(theta);
+    const lcgx = (xcgc - x0) * ct + (ycgc - y0) * st;
+    const lcgy = -(xcgc - x0) * st + (ycgc - y0) * ct;
+
+    document.getElementById('res_theta').innerText = (theta * 180 / Math.PI).toFixed(3) + "°";
+    document.getElementById('res_off').innerText = x0.toFixed(1) + ", " + y0.toFixed(1);
+    document.getElementById('res_lcgx').innerText = lcgx.toFixed(3) + " mm";
+    document.getElementById('res_lcgy').innerText = lcgy.toFixed(3) + " mm";
+
+    draw(ts, dx, dy, x0, y0, theta, xcgc, ycgc, lcgx, lcgy, pts);
+}
+
+
+    function draw(ts, dx, dy, x0, y0, theta, xcgc, ycgc, lcgx, lcgy, pts) {
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const sc = (canvas.width * 0.8) / ts;
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        const accentColor = "#00e5ff"; 
+
+        // Tabla
+        ctx.strokeStyle = '#333';
+        ctx.strokeRect(cx - (ts/2)*sc, cy - (ts/2)*sc, ts*sc, ts*sc);
+
+        // Eksenler
+        ctx.setLineDash([2, 5]);
+        ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(canvas.width,cy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,canvas.height); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Problar
+        pts.forEach(p => {
+            ctx.fillStyle = '#ff0';
+            ctx.beginPath(); ctx.arc(cx + p.x*sc, cy - p.y*sc, 5, 0, 7); ctx.fill();
+            ctx.font = "10px Arial"; ctx.fillText(p.l, cx + p.x*sc + 8, cy - p.y*sc - 8);
+        });
+
+        // Cisim
+        ctx.save();
+        ctx.translate(cx + x0*sc, cy - y0*sc);
+        ctx.rotate(-theta);
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-dx*sc/2, -dy*sc/2, dx*sc, dy*sc);
+        ctx.fillStyle = 'rgba(0, 229, 255, 0.1)';
+        ctx.fillRect(-dx*sc/2, -dy*sc/2, dx*sc, dy*sc);
+        
+        // Lokal CoG
+        ctx.strokeStyle = '#ff9100';
+        const lx = lcgx*sc, ly = -lcgy*sc;
+        ctx.beginPath(); ctx.arc(lx, ly, 8, 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(lx-12, ly); ctx.lineTo(lx+12, ly); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(lx, ly-12); ctx.lineTo(lx, ly+12); ctx.stroke();
+        ctx.restore();
+
+        // Cihaz CoG
+        ctx.fillStyle = '#ff3d00';
+        ctx.beginPath(); ctx.arc(cx + xcgc*sc, cy - ycgc*sc, 6, 0, 7); ctx.fill();
+    }
+    
+    updateInputs();
+    calculate();
+</script>
+</body>
+</html>
