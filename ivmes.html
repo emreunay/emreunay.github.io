@@ -343,10 +343,12 @@
 <footer>STM32F103 · MPU-6050 · nRF52 BLE &nbsp;|&nbsp; Web Bluetooth (Chrome/Edge)</footer>
 
 <script>
-// ── BLE UUIDs — Nordic UART Service ─────────────────────
-const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const NUS_TX_CHAR = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // notify → browser receives
-const NUS_RX_CHAR = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // write  → send to device
+// ── BLE UUIDs — confirmed via nRF Connect ────────────────
+// Service 0xFFF0  │  Char 0xFFF1 NOTIFY (nRF52→browser)
+//                 │  Char 0xFFF2 WRITE  (browser→nRF52, unused)
+const NUS_SERVICE = '0000fff0-0000-1000-8000-00805f9b34fb';
+const NUS_TX_CHAR = '0000fff1-0000-1000-8000-00805f9b34fb'; // NOTIFY → browser receives
+const NUS_RX_CHAR = '0000fff2-0000-1000-8000-00805f9b34fb'; // WRITE  → send to device
 
 // ── App state ────────────────────────────────────────────
 let bleDevice    = null;
