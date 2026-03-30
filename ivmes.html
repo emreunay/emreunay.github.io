@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Athlete Jump Monitor</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:      #0d1117;
+    --surface: #161b22;
+    --border:  #30363d;
+    --accent:  #00d4ff;
+    --accent2: #7c3aed;
+    --green:   #3fb950;
+    --red:     #f85149;
+    --text:    #e6edf3;
+    --muted:   #8b949e;
+    --card-r:  14px;
+  }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: .5px;
+  }
+  .brand svg { width: 28px; height: 28px; }
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--muted);
+    transition: color .3s;
+  }
+  .status-pill .dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background .3s;
+    flex-shrink: 0;
+  }
+  .status-pill.connected { color: var(--green); }
+  .status-pill.connected .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: .88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    letter-spacing: .4px;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-connect  { background: var(--accent); color: #000; }
+  .btn-disconnect { background: var(--red); color: #fff; }
+  .btn:disabled { opacity: .4; cursor: default; }
+
+  /* ── Main layout ── */
+  main {
+    flex: 1;
+    padding: 28px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* ── Stat cards ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-r);
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: var(--card-r) var(--card-r) 0 0;
+  }
+  .card.green::before  { background: var(--green); }
+  .card.purple::before { background: var(--accent2); }
+  .card.red::before    { background: var(--red); }
+
+  .card-label {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .card-value {
+    font-size: 2.6rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -1px;
+    color: var(--text);
+  }
+  .card-unit {
+    font-size: .78rem;
+    color: var(--muted);
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* ── Chart + log row ── */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 800px) {
+    .bottom-row { grid-template-columns: 1fr; }
+  }
+
+  /* ── Chart container ── */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-r);
+    padding: 20px 22px;
+  }
+  .chart-title {
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .chart-wrap { position: relative; height: 280px; }
+
+  /* ── Jump log ── */
+  .log-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-r);
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .log-title {
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .log-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .log-list::-webkit-scrollbar { width: 5px; }
+  .log-list::-webkit-scrollbar-track { background: transparent; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .log-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,.035);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: .82rem;
+    animation: fadeSlide .3s ease;
+  }
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .log-num  { color: var(--muted); font-weight: 700; width: 28px; }
+  .log-h    { font-weight: 800; color: var(--accent); }
+  .log-time { color: var(--muted); font-size: .74rem; }
+  .log-badge {
+    font-size: .68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(124,58,237,.25);
+    color: #a78bfa;
+    display: none;
+  }
+  .log-item.is-best .log-badge { display: inline; }
+  .log-item.is-best .log-h { color: #a78bfa; }
+
+  .btn-clear {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: .76rem;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    align-self: flex-end;
+    transition: border-color .2s, color .2s;
+  }
+  .btn-clear:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── Empty / placeholder states ── */
+  .empty-hint {
+    color: var(--muted);
+    font-size: .82rem;
+    text-align: center;
+    padding: 24px 0;
+    display: none;
+  }
+  .empty-hint.show { display: block; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 14px;
+    font-size: .74rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Header ───────────────────────────────────────────── -->
+<header>
+  <div class="brand">
+    <!-- sneaker / jump icon -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 18h12M4 14l4-8 4 4 4-6"/>
+      <circle cx="12" cy="20" r="1" fill="var(--accent)" stroke="none"/>
+    </svg>
+    Athlete Jump Monitor
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="status-pill" id="statusPill">
+      <div class="dot"></div>
+      <span id="statusText">Disconnected</span>
+    </div>
+    <button class="btn btn-connect"    id="btnConnect">Connect BLE</button>
+    <button class="btn btn-disconnect" id="btnDisconnect" style="display:none">Disconnect</button>
+  </div>
+</header>
+
+<!-- ── Main ─────────────────────────────────────────────── -->
+<main>
+
+  <!-- stat cards -->
+  <div class="stats-grid">
+    <div class="card">
+      <div class="card-label">Total Jumps</div>
+      <div class="card-value" id="statCount">0</div>
+      <div class="card-unit">jumps detected</div>
+    </div>
+    <div class="card green">
+      <div class="card-label">Last Jump</div>
+      <div class="card-value" id="statLast">—</div>
+      <div class="card-unit">centimetres</div>
+    </div>
+    <div class="card purple">
+      <div class="card-label">Best Jump</div>
+      <div class="card-value" id="statMax">—</div>
+      <div class="card-unit">centimetres</div>
+    </div>
+    <div class="card red">
+      <div class="card-label">Average</div>
+      <div class="card-value" id="statAvg">—</div>
+      <div class="card-unit">centimetres</div>
+    </div>
+  </div>
+
+  <!-- chart + log -->
+  <div class="bottom-row">
+
+    <!-- bar chart -->
+    <div class="chart-card">
+      <div class="chart-title">Jump Height History (last 30)</div>
+      <div class="chart-wrap">
+        <canvas id="jumpChart"></canvas>
+      </div>
+    </div>
+
+    <!-- jump log -->
+    <div class="log-card">
+      <div class="log-title">Jump Log</div>
+      <div class="empty-hint show" id="emptyHint">No jumps recorded yet</div>
+      <ul class="log-list" id="logList"></ul>
+      <button class="btn-clear" id="btnClear">Clear log</button>
+    </div>
+
+  </div>
+</main>
+
+<footer>STM32F103 · MPU-6050 · nRF52 BLE &nbsp;|&nbsp; Web Bluetooth (Chrome/Edge)</footer>
+
+<script>
+// ── BLE UUIDs — Nordic UART Service ─────────────────────
+const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_TX_CHAR = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // notify → browser receives
+const NUS_RX_CHAR = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // write  → send to device
+
+// ── App state ────────────────────────────────────────────
+let bleDevice    = null;
+let rxChar       = null;
+let rxBuffer     = '';
+let jumpLog      = [];          // [{num, h_cm, ts}]
+let chartLabels  = [];
+let chartData    = [];
+const MAX_CHART  = 30;
+
+// ── UI refs ──────────────────────────────────────────────
+const btnConnect    = document.getElementById('btnConnect');
+const btnDisconnect = document.getElementById('btnDisconnect');
+const statusPill    = document.getElementById('statusPill');
+const statusText    = document.getElementById('statusText');
+const statCount     = document.getElementById('statCount');
+const statLast      = document.getElementById('statLast');
+const statMax       = document.getElementById('statMax');
+const statAvg       = document.getElementById('statAvg');
+const logList       = document.getElementById('logList');
+const emptyHint     = document.getElementById('emptyHint');
+const btnClear      = document.getElementById('btnClear');
+
+// ── Chart.js setup ────────────────────────────────────────
+const ctx = document.getElementById('jumpChart').getContext('2d');
+const jumpChart = new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: chartLabels,
+    datasets: [{
+      label: 'Height (cm)',
+      data: chartData,
+      backgroundColor: chartData.map(() => 'rgba(0,212,255,.55)'),
+      borderColor:     chartData.map(() => '#00d4ff'),
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 400 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.parsed.y.toFixed(1)} cm`
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid:  { color: 'rgba(255,255,255,.05)' },
+        ticks: { color: '#8b949e', font: { size: 11 } }
+      },
+      y: {
+        beginAtZero: true,
+        grid:  { color: 'rgba(255,255,255,.06)' },
+        ticks: { color: '#8b949e', font: { size: 11 },
+                 callback: v => v + ' cm' }
+      }
+    }
+  }
+});
+
+// ── Parse BLE frame ───────────────────────────────────────
+// Format: J:<count>,H:<last_cm>,MX:<max_cm>,AV:<avg_cm>,EV:<0|1>
+function parseFrame(line) {
+  const get = (key) => {
+    const m = line.match(new RegExp(key + ':([\\d.]+)'));
+    return m ? parseFloat(m[1]) : null;
+  };
+  return {
+    count: get('J'),
+    h:     get('H'),
+    max:   get('MX'),
+    avg:   get('AV'),
+    event: get('EV') === 1
+  };
+}
+
+function handleFrame(line) {
+  if (!line || line.trim() === 'READY') return;
+  const d = parseFrame(line);
+  if (d.count === null) return;
+
+  // Update stat cards
+  statCount.textContent = d.count;
+  statLast.textContent  = d.h   > 0 ? d.h.toFixed(1)   : '—';
+  statMax.textContent   = d.max > 0 ? d.max.toFixed(1)  : '—';
+  statAvg.textContent   = d.avg > 0 ? d.avg.toFixed(1)  : '—';
+
+  // On a new jump event, add to log + chart
+  if (d.event && d.count > 0) {
+    addJump(d.count, d.h, d.max);
+  }
+}
+
+function addJump(num, h_cm, currentMax) {
+  const ts = new Date().toLocaleTimeString();
+
+  // Prepend to log array (newest first in display)
+  jumpLog.unshift({ num, h_cm, ts });
+
+  // Rebuild log DOM
+  emptyHint.classList.remove('show');
+  logList.innerHTML = '';
+  jumpLog.forEach(j => {
+    const li = document.createElement('li');
+    li.className = 'log-item' + (j.h_cm === currentMax && currentMax > 0 ? ' is-best' : '');
+    li.innerHTML = `
+      <span class="log-num">#${j.num}</span>
+      <span class="log-h">${j.h_cm.toFixed(1)} cm</span>
+      <span class="log-badge">BEST</span>
+      <span class="log-time">${j.ts}</span>`;
+    logList.appendChild(li);
+  });
+
+  // Update chart (append, cap at MAX_CHART)
+  chartLabels.push(`#${num}`);
+  chartData.push(parseFloat(h_cm.toFixed(1)));
+  if (chartLabels.length > MAX_CHART) {
+    chartLabels.shift();
+    chartData.shift();
+  }
+
+  // Recolour bars — highlight max
+  const maxVal = Math.max(...chartData);
+  jumpChart.data.datasets[0].backgroundColor =
+    chartData.map(v => v === maxVal ? 'rgba(124,58,237,.75)' : 'rgba(0,212,255,.55)');
+  jumpChart.data.datasets[0].borderColor =
+    chartData.map(v => v === maxVal ? '#a78bfa' : '#00d4ff');
+  jumpChart.update();
+}
+
+// ── Web Bluetooth ─────────────────────────────────────────
+btnConnect.addEventListener('click', async () => {
+  if (!navigator.bluetooth) {
+    alert('Web Bluetooth is not supported in this browser.\nUse Chrome or Edge (desktop).');
+    return;
+  }
+  try {
+    btnConnect.disabled = true;
+    statusText.textContent = 'Scanning…';
+
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [NUS_SERVICE] }],
+      optionalServices: [NUS_SERVICE]
+    });
+
+    bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+    const server  = await bleDevice.gatt.connect();
+    const service = await server.getPrimaryService(NUS_SERVICE);
+    const txChar  = await service.getCharacteristic(NUS_TX_CHAR);
+    rxChar        = await service.getCharacteristic(NUS_RX_CHAR);
+
+    txChar.addEventListener('characteristicvaluechanged', onNotify);
+    await txChar.startNotifications();
+
+    setConnected(true);
+  } catch (err) {
+    console.error(err);
+    setConnected(false);
+    if (err.name !== 'NotFoundError')   // user cancelled → silent
+      alert('BLE connection failed:\n' + err.message);
+  }
+});
+
+btnDisconnect.addEventListener('click', () => {
+  if (bleDevice && bleDevice.gatt.connected)
+    bleDevice.gatt.disconnect();
+});
+
+btnClear.addEventListener('click', () => {
+  jumpLog = [];
+  logList.innerHTML = '';
+  emptyHint.classList.add('show');
+});
+
+function onNotify(e) {
+  const chunk = new TextDecoder().decode(e.target.value);
+  rxBuffer += chunk;
+  let nl;
+  while ((nl = rxBuffer.indexOf('\n')) !== -1) {
+    const line = rxBuffer.slice(0, nl).trim();
+    rxBuffer = rxBuffer.slice(nl + 1);
+    handleFrame(line);
+  }
+}
+
+function onDisconnected() {
+  setConnected(false);
+  rxBuffer = '';
+}
+
+function setConnected(yes) {
+  btnConnect.disabled     = yes;
+  btnConnect.style.display    = yes ? 'none' : '';
+  btnDisconnect.style.display = yes ? ''     : 'none';
+  statusPill.classList.toggle('connected', yes);
+  statusText.textContent = yes ? 'Connected' : 'Disconnected';
+}
+</script>
+</body>
+</html>
