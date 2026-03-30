@@ -493,7 +493,7 @@ btnConnect.addEventListener('click', async () => {
     statusText.textContent = 'Scanning…';
 
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [NUS_SERVICE] }],
+      acceptAllDevices: true,
       optionalServices: [NUS_SERVICE]
     });
 
