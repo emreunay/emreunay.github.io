@@ -564,12 +564,23 @@ btnClear.addEventListener('click', () => {
 
 function onNotify(e) {
   const chunk = new TextDecoder().decode(e.target.value);
+  bleLog('RAW notify (' + chunk.length + 'B): ' + chunk.replace(/[\r\n]/g, '↵'), '#facc15');
   rxBuffer += chunk;
+
+  // Handle \n, \r\n, or \r line endings
   let nl;
-  while ((nl = rxBuffer.indexOf('\n')) !== -1) {
+  while ((nl = rxBuffer.search(/[\r\n]/)) !== -1) {
     const line = rxBuffer.slice(0, nl).trim();
     rxBuffer = rxBuffer.slice(nl + 1);
-    handleFrame(line);
+    if (rxBuffer.startsWith('\n')) rxBuffer = rxBuffer.slice(1); // consume \r\n pair
+    if (line) handleFrame(line);
+  }
+
+  // Some modules send each UART burst as one BLE notification with no line ending.
+  // If the buffer has a complete-looking frame but no newline, process it directly.
+  if (rxBuffer.includes('J:') && rxBuffer.includes('EV:')) {
+    handleFrame(rxBuffer.trim());
+    rxBuffer = '';
   }
 }
 
