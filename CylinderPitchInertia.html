@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karakamlar Silindir Pitch Inertia Hesaplama</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
+        h1, h2 { color: #333; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { padding: 10px; text-align: center; border: 1px solid #ccc; }
+        th { background: #007bff; color: white; }
+        input { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { padding: 12px 20px; margin: 10px 5px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 8px; font-size: 1.1em; }
+        .section { margin-top: 30px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Karakamlar Silindir Pitch Inertia Hesaplama</h1>
+    
+    <div>
+        <label><strong>I_zz (kg·m²):</strong></label>
+        <input type="number" id="Izz" step="0.000001" value="0.008" placeholder="I_zz değeri">
+    </div>
+
+    <div class="section">
+        <h2>1) İki Ölçümlü Yöntem (I_yz = 0 kabulü)</h2>
+        <p>φ = 0° (I_zz) + tek bir açıda ölçüm</p>
+        <table>
+            <tr>
+                <th>φ (derece)</th>
+                <th>I_meas (kg·m²)</th>
+            </tr>
+            <tr>
+                <td><input type="number" id="phi2" value="75" step="0.1"></td>
+                <td><input type="number" id="Imeas2" value="0.0126" step="0.000001"></td>
+            </tr>
+        </table>
+        <button onclick="hesaplaIkiOlcum()">I_yy Hesapla (I_yz=0)</button>
+        <div id="sonucIki" class="result"></div>
+    </div>
+
+    <div class="section">
+        <h2>2) Üç+ Ölçümlü Yöntem (I_yy + I_yz birlikte)</h2>
+        <p>En az 3 farklı açı ekleyin (φ=0° hariç)</p>
+        
+        <table id="olcumTablosu">
+            <thead>
+                <tr>
+                    <th>φ (derece)</th>
+                    <th>I_meas (kg·m²)</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- JS ile satırlar eklenecek -->
+            </tbody>
+        </table>
+        
+        <button onclick="yeniSatirEkle()">+ Yeni Ölçüm Satırı Ekle</button>
+        <button onclick="hesaplaCokluOlcum()">I_yy ve I_yz Hesapla (Least Squares)</button>
+        
+        <div id="sonucCoklu" class="result"></div>
+    </div>
+</div>
+
+<script>
+// ====================== İKİ ÖLÇÜMLÜ YÖNTEM ======================
+function hesaplaIkiOlcum() {
+    const Izz = parseFloat(document.getElementById('Izz').value);
+    const phiDeg = parseFloat(document.getElementById('phi2').value);
+    const Imeas = parseFloat(document.getElementById('Imeas2').value);
+    
+    if (!Izz || !Imeas || isNaN(phiDeg)) {
+        document.getElementById('sonucIki').innerHTML = `<strong style="color:red;">Lütfen tüm değerleri girin!</strong>`;
+        return;
+    }
+    
+    const phi = phiDeg * Math.PI / 180;
+    const sin2 = Math.sin(phi)**2;
+    const cos2 = Math.cos(phi)**2;
+    
+    const Iyy = (Imeas - Izz * cos2) / sin2;
+    
+    let html = `<strong>I_yy = ${Iyy.toFixed(8)} kg·m²</strong><br>`;
+    html += `φ = ${phiDeg}°<br>`;
+    html += `Kullanılan formül: I_yy = (I_meas - I_zz·cos²φ) / sin²φ`;
+    
+    document.getElementById('sonucIki').innerHTML = html;
+}
+
+// ====================== ÇOKLU ÖLÇÜM YÖNTEMİ ======================
+let satirSayisi = 0;
+
+function yeniSatirEkle() {
+    satirSayisi++;
+    const tbody = document.querySelector('#olcumTablosu tbody');
+    
+    const tr = document.createElement('tr');
+    tr.id = `satir${satirSayisi}`;
+    tr.innerHTML = `
+        <td><input type="number" class="phi" value="${60 + satirSayisi*5}" step="0.1"></td>
+        <td><input type="number" class="Imeas" value="0.011" step="0.000001"></td>
+        <td><button onclick="this.parentElement.parentElement.remove()">Sil</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+// İlk 3 satırı otomatik ekle
+window.onload = function() {
+    for (let i = 0; i < 3; i++) {
+        yeniSatirEkle();
+    }
+    // Örnek değerleri biraz değiştir
+    const phis = document.querySelectorAll('.phi');
+    const Imeass = document.querySelectorAll('.Imeas');
+    if (phis.length >= 3) {
+        phis[0].value = 30;
+        phis[1].value = 50;
+        phis[2].value = 75;
+        Imeass[0].value = 0.00982;
+        Imeass[1].value = 0.0113;
+        Imeass[2].value = 0.0126;
+    }
+};
+
+function hesaplaCokluOlcum() {
+    const Izz = parseFloat(document.getElementById('Izz').value);
+    const phiInputs = document.querySelectorAll('.phi');
+    const ImeasInputs = document.querySelectorAll('.Imeas');
+    
+    let phiDeg = [], ImeasList = [];
+    
+    for (let i = 0; i < phiInputs.length; i++) {
+        const p = parseFloat(phiInputs[i].value);
+        const im = parseFloat(ImeasInputs[i].value);
+        if (!isNaN(p) && !isNaN(im)) {
+            phiDeg.push(p);
+            ImeasList.push(im);
+        }
+    }
+    
+    if (phiDeg.length < 2) {
+        document.getElementById('sonucCoklu').innerHTML = `<strong style="color:red;">En az 2 ölçüm (tercihen 3+) girin!</strong>`;
+        return;
+    }
+    
+    // Matris kurma
+    const n = phiDeg.length;
+    const A = [];
+    const b = [];
+    
+    for (let i = 0; i < n; i++) {
+        const phi = phiDeg[i] * Math.PI / 180;
+        const s2 = Math.sin(phi)**2;
+        const s2phi = Math.sin(2 * phi);
+        const cos2 = Math.cos(phi)**2;
+        
+        A.push([s2, s2phi]);
+        b.push(ImeasList[i] - Izz * cos2);
+    }
+    
+    // Least Squares çözümü: x = (A^T A)^-1 A^T b
+    // Basit 2x2 sistem için doğrudan formül kullanıyoruz
+    let sum_s2 = 0, sum_s2phi = 0, sum_s2_s2 = 0, sum_s2phi_s2phi = 0, sum_s2_s2phi = 0;
+    let sum_b = 0, sum_s2_b = 0, sum_s2phi_b = 0;
+    
+    for (let i = 0; i < n; i++) {
+        const s2 = A[i][0];
+        const s2p = A[i][1];
+        const bb = b[i];
+        
+        sum_s2 += s2;
+        sum_s2phi += s2p;
+        sum_s2_s2 += s2 * s2;
+        sum_s2phi_s2phi += s2p * s2p;
+        sum_s2_s2phi += s2 * s2p;
+        
+        sum_b += bb;
+        sum_s2_b += s2 * bb;
+        sum_s2phi_b += s2p * bb;
+    }
+    
+    const det = sum_s2_s2 * sum_s2phi_s2phi - sum_s2_s2phi ** 2;
+    
+    if (Math.abs(det) < 1e-12) {
+        document.getElementById('sonucCoklu').innerHTML = `<strong style="color:red;">Matris singular! Farklı açılar seçin.</strong>`;
+        return;
+    }
+    
+    const Iyy = (sum_s2phi_s2phi * sum_s2_b - sum_s2_s2phi * sum_s2phi_b) / det;
+    const Iyz = (sum_s2_s2 * sum_s2phi_b - sum_s2_s2phi * sum_s2_b) / det;
+    
+    let html = `<strong>I_yy = ${Iyy.toFixed(8)} kg·m²</strong><br>`;
+    html += `<strong>I_yz = ${Iyz.toFixed(8)} kg·m²</strong><br><br>`;
+    html += `Ölçüm sayısı: ${n}<br>`;
+    html += `Kullanılan yöntem: Least Squares (en küçük kareler)`;
+    
+    document.getElementById('sonucCoklu').innerHTML = html;
+}
+</script>
+</body>
+</html>
