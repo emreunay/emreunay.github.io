@@ -338,6 +338,19 @@
     </div>
 
   </div>
+
+  <!-- ── BLE debug log ────────────────────────────────── -->
+  <div class="chart-card" style="margin-top:0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="chart-title" style="margin:0;">BLE Connection Log</div>
+      <button class="btn-clear" id="btnClearLog">Clear</button>
+    </div>
+    <div id="bleLog" style="
+      font-family:monospace;font-size:.78rem;color:var(--muted);
+      background:rgba(0,0,0,.25);border-radius:8px;padding:10px 14px;
+      max-height:160px;overflow-y:auto;line-height:1.7;"></div>
+  </div>
+
 </main>
 
 <footer>STM32F103 · MPU-6050 · nRF52 BLE &nbsp;|&nbsp; Web Bluetooth (Chrome/Edge)</footer>
@@ -346,15 +359,14 @@
 // ── BLE UUIDs — confirmed via nRF Connect ────────────────
 // Service 0xFFF0  │  Char 0xFFF1 NOTIFY (nRF52→browser)
 //                 │  Char 0xFFF2 WRITE  (browser→nRF52, unused)
-const NUS_SERVICE = '0000fff0-0000-1000-8000-00805f9b34fb';
-const NUS_TX_CHAR = '0000fff1-0000-1000-8000-00805f9b34fb'; // NOTIFY → browser receives
-const NUS_RX_CHAR = '0000fff2-0000-1000-8000-00805f9b34fb'; // WRITE  → send to device
+const NUS_SERVICE = 0xFFF0;   // short 16-bit form — most compatible
+const NUS_TX_CHAR = 0xFFF1;   // NOTIFY → browser receives
+const NUS_RX_CHAR = 0xFFF2;   // WRITE  → send to device (unused)
 
 // ── App state ────────────────────────────────────────────
 let bleDevice    = null;
-let rxChar       = null;
 let rxBuffer     = '';
-let jumpLog      = [];          // [{num, h_cm, ts}]
+let jumpLog      = [];
 let chartLabels  = [];
 let chartData    = [];
 const MAX_CHART  = 30;
@@ -371,6 +383,17 @@ const statAvg       = document.getElementById('statAvg');
 const logList       = document.getElementById('logList');
 const emptyHint     = document.getElementById('emptyHint');
 const btnClear      = document.getElementById('btnClear');
+const bleLogEl      = document.getElementById('bleLog');
+
+// ── BLE log helper ───────────────────────────────────────
+function bleLog(msg, color) {
+  const line = document.createElement('div');
+  line.style.color = color || 'var(--muted)';
+  line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  bleLogEl.appendChild(line);
+  bleLogEl.scrollTop = bleLogEl.scrollHeight;
+}
+document.getElementById('btnClearLog').addEventListener('click', () => bleLogEl.innerHTML = '');
 
 // ── Chart.js setup ────────────────────────────────────────
 const ctx = document.getElementById('jumpChart').getContext('2d');
@@ -432,6 +455,7 @@ function parseFrame(line) {
 
 function handleFrame(line) {
   if (!line || line.trim() === 'READY') return;
+  bleLog('RX: ' + line, '#4ade80');   // show every raw packet in green
   const d = parseFrame(line);
   if (d.count === null) return;
 
@@ -442,7 +466,7 @@ function handleFrame(line) {
   statAvg.textContent   = d.avg > 0 ? d.avg.toFixed(1)  : '—';
 
   // On a new jump event, add to log + chart
-  if (d.event && d.count > 0) {
+  if (d.event && d.count > 0 && d.h !== null) {
     addJump(d.count, d.h, d.max);
   }
 }
@@ -493,28 +517,37 @@ btnConnect.addEventListener('click', async () => {
   try {
     btnConnect.disabled = true;
     statusText.textContent = 'Scanning…';
+    bleLog('Requesting BLE device…');
 
     bleDevice = await navigator.bluetooth.requestDevice({
       acceptAllDevices: true,
       optionalServices: [NUS_SERVICE]
     });
+    bleLog('Device selected: ' + bleDevice.name);
 
     bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
-    const server  = await bleDevice.gatt.connect();
+    bleLog('Connecting to GATT server…');
+    const server = await bleDevice.gatt.connect();
+    bleLog('GATT connected. Getting service 0xFFF0…');
+
     const service = await server.getPrimaryService(NUS_SERVICE);
-    const txChar  = await service.getCharacteristic(NUS_TX_CHAR);
-    rxChar        = await service.getCharacteristic(NUS_RX_CHAR);
+    bleLog('Service found. Getting notify char 0xFFF1…');
+
+    const txChar = await service.getCharacteristic(NUS_TX_CHAR);
+    bleLog('Char 0xFFF1 found. Starting notifications…');
 
     txChar.addEventListener('characteristicvaluechanged', onNotify);
     await txChar.startNotifications();
+    bleLog('Notifications active — waiting for data.', '#00d4ff');
 
     setConnected(true);
   } catch (err) {
     console.error(err);
+    bleLog('ERROR: ' + err.name + ' — ' + err.message, '#f85149');
     setConnected(false);
-    if (err.name !== 'NotFoundError')   // user cancelled → silent
-      alert('BLE connection failed:\n' + err.message);
+    if (err.name !== 'UserCancelledError')
+      alert('BLE connection failed:\n' + err.name + ': ' + err.message);
   }
 });
 
@@ -541,6 +574,7 @@ function onNotify(e) {
 }
 
 function onDisconnected() {
+  bleLog('Disconnected.', '#f85149');
   setConnected(false);
   rxBuffer = '';
 }
