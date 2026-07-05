@@ -182,4 +182,301 @@
             creatorName: "Edem",
             version: "1.0.0",
             creationDate: new Date().toISOString(),
-            plants: [
+            plants: [{ id: 1, x: 100, y: 120, size: 40, class: "flower", species: "Rose", waterPeriod: 24, fertilizePeriod: 7, lastWatered: "2026-07-04T12:00:00.000Z", lastFertilized: "2026-06-01T12:00:00.000Z", moisture: 12, ph: 6.5 },
+{ id: 2, x: 250, y: 180, size: 50, class: "vegetable", species: "Pepper", waterPeriod: 48, fertilizePeriod: 15, lastWatered: "2026-07-05T10:00:00.000Z", lastFertilized: "2026-07-01T12:00:00.000Z", moisture: 60, ph: 6.2 },
+{ id: 3, x: 400, y: 150, size: 70, class: "tree", species: "Apple Tree", waterPeriod: 168, fertilizePeriod: 90, lastWatered: "2026-06-20T12:00:00.000Z", lastFertilized: "2026-07-04T12:00:00.000Z", moisture: 40, ph: 7.0 }
+],
+walls: [
+{ id: 1, x1: 20, y1: 20, x2: 500, y2: 20 },
+{ id: 2, x1: 20, y1: 20, x2: 20, y2: 350 }
+]
+};
+let gardenData = JSON.parse(JSON.stringify(defaultGarden));
+let currentMode = 'plant'; // 'plant', 'line', 'delete'
+let selectedElement = null; // {type: 'plant'/'line', id: x}
+let lineStartClick = null;
+// Uygulama Başlangıcı
+window.onload = function() {
+const saved = localStorage.getItem('edem_garden_data');
+if(saved) {
+try { gardenData = JSON.parse(saved); } catch(e) { console.error("Yükleme hatası", e); }
+}
+updateJSONArea();
+render();
+};
+function updateJSONArea() {
+document.getElementById('json-textarea').value = JSON.stringify(gardenData, null, 2);
+}
+function saveGarden() {
+try {
+const data = document.getElementById('json-textarea').value;
+gardenData = JSON.parse(data);
+localStorage.setItem('edem_garden_data', JSON.stringify(gardenData));
+render();
+alert("Bahçe kaydedildi ve güncellendi!");
+} catch (e) {
+alert("JSON formatı hatalı! Lütfen kontrol edin.");
+}
+}
+function loadGarden() {
+saveGarden();
+}
+function newGarden() {
+if(confirm("Tüm tasarımı sıfırlamak istediğinize emin misiniz?")) {
+gardenData = {
+gardenName: "New Garden",
+creatorName: "Edem",
+version: "1.0.0",
+creationDate: new Date().toISOString(),
+plants: [],
+walls: []
+};
+updateJSONArea();
+render();
+}
+}
+function setEditorMode(mode) {
+currentMode = mode;
+document.getElementById('btn-mode-plant').classList.remove('active');
+document.getElementById('btn-mode-line').classList.remove('active');
+document.getElementById('btn-mode-delete').classList.remove('active');
+if(mode === 'plant') document.getElementById('btn-mode-plant').classList.add('active');
+if(mode === 'line') document.getElementById('btn-mode-line').classList.add('active');
+if(mode === 'delete') document.getElementById('btn-mode-delete').classList.add('active');
+// Form alanlarını göster/gizle
+if(mode === 'line') {
+document.querySelectorAll('.plant-field').forEach(el => el.style.display = 'none');
+document.querySelectorAll('.line-field').forEach(el => el.style.display = 'block');
+} else {
+document.querySelectorAll('.plant-field').forEach(el => el.style.display = 'block');
+document.querySelectorAll('.line-field').forEach(el => el.style.display = 'none');
+}
+lineStartClick = null;
+}
+// Bitki Sağlık Kontrolü (Alarm Durumu)
+function checkStatus(plant) {
+const now = new Date();
+const lastW = new Date(plant.lastWatered);
+const lastF = new Date(plant.lastFertilized);
+// Basit saat ve gün hesaplama farkı
+const hoursSinceWater = Math.abs(now - lastW) / 36e5;
+const daysSinceFertilize = Math.abs(now - lastF) / (36e5 * 24);
+if(hoursSinceWater > plant.waterPeriod || daysSinceFertilize > plant.fertilizePeriod || plant.moisture < 20) {
+return false; // Tehlike / Bakım lazım
+}
+return true; // Sağlıklı
+}
+// Harita veya Liste Görünümünü Değiştir
+function toggleViewMode() {
+render();
+}
+// Ekrana Çizim Yapma Ana Fonksiyonu
+function render() {
+const viewMode = document.getElementById('view-mode').value;
+const container = document.getElementById('visualization-area');
+container.innerHTML = '';
+if (viewMode === 'map') {
+// Harita Tasarımı Çizimi
+const canvas = document.createElement('div');
+canvas.id = 'map-canvas';
+canvas.onclick = handleMapClick;
+container.appendChild(canvas);
+// Duvarları Çiz (Çizgiler)
+gardenData.walls.forEach(w => {
+const dx = w.x2 - w.x1;
+const dy = w.y2 - w.y1;
+const length = Math.sqrt(dxdx + dydy);
+const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+const lineEl = document.createElement('div');
+lineEl.className = 'map-line';
+lineEl.style.width = length + 'px';
+lineEl.style.left = w.x1 + 'px';
+lineEl.style.top = w.y1 + 'px';
+lineEl.style.transform = rotate(${angle}deg);
+lineEl.onclick = (e) => { e.stopPropagation(); selectElement('line', w.id); };
+canvas.appendChild(lineEl);
+});
+// Bitkileri Çiz
+gardenData.plants.forEach(p => {
+const plantEl = document.createElement('div');
+plantEl.className = map-plant plant-${p.class};
+plantEl.style.width = p.size + 'px';
+plantEl.style.height = p.size + 'px';
+plantEl.style.left = p.x + 'px';
+plantEl.style.top = p.y + 'px';
+plantEl.innerText = p.species.substring(0,2).toUpperCase();
+const isOk = checkStatus(p);
+if(!isOk) {
+const alertEl = document.createElement('div');
+alertEl.className = 'alert-indicator';
+alertEl.innerText = '!';
+plantEl.appendChild(alertEl);
+}
+plantEl.onclick = (e) => { e.stopPropagation(); selectElement('plant', p.id); };
+canvas.appendChild(plantEl);
+});
+} else {
+// Liste Görünümü Çizimi
+if(gardenData.plants.length === 0) {
+container.innerHTML = "Bahçenizde henüz bitki yok.";
+return;
+}
+gardenData.plants.forEach(p => {
+const isOk = checkStatus(p);
+const listItem = document.createElement('div');
+listItem.className = list-view-item ${isOk ? 'status-ok' : 'status-alert'};
+listItem.innerHTML = <div> <strong>${p.species}</strong> (${p.class.toUpperCase()})<br> <small>Konum: (${p.x}, ${p.y}) | Nem: %${p.moisture} | pH: ${p.ph}</small> </div> <div style="text-align: right;"> <small>Durum: ${isOk ? 'Sağlıklı' : '🚨 BAKIM LAZIM'}</small><br> <button onclick="selectElement('plant', ${p.id}); document.getElementById('view-mode').value='map'; render();" style="font-size:0.75rem; padding:4px 8px;">Düzenle</button> </div>;
+container.appendChild(listItem);
+});
+}
+}
+// Haritaya tıklama olayları
+function handleMapClick(e) {
+const rect = e.target.getBoundingClientRect();
+const x = Math.round(e.clientX - rect.left);
+const y = Math.round(e.clientY - rect.top);
+document.getElementById('p-x').value = x;
+document.getElementById('p-y').value = y;
+if (currentMode === 'line') {
+if (!lineStartClick) {
+lineStartClick = { x, y };
+alert("İlk nokta seçildi! Şimdi çizginin biteceği yere tıklayın veya koordinatları elle girip Apply'a basın.");
+} else {
+document.getElementById('l-x2').value = x;
+document.getElementById('l-y2').value = y;
+commitAction();
+}
+} else if (currentMode === 'plant') {
+commitAction();
+}
+}
+// Bir öğeyi seçip detaylarını aksiyon paneline yükleme
+function selectElement(type, id) {
+selectedElement = { type, id };
+document.getElementById('quick-action-buttons').style.display = type === 'plant' ? 'flex' : 'none';
+document.getElementById('action-title').innerText = Editing ${type} (ID: ${id});
+if (currentMode === 'delete') {
+commitAction();
+return;
+}
+if (type === 'plant') {
+setEditorMode('plant');
+const p = gardenData.plants.find(item => item.id === id);
+if (p) {
+document.getElementById('p-x').value = p.x;
+document.getElementById('p-y').value = p.y;
+document.getElementById('p-class').value = p.class;
+document.getElementById('p-species').value = p.species;
+document.getElementById('p-size').value = p.size;
+document.getElementById('p-water-per').value = p.waterPeriod;
+document.getElementById('p-fert-per').value = p.fertilizePeriod;
+document.getElementById('p-moisture').value = p.moisture;
+}
+} else if (type === 'line') {
+setEditorMode('line');
+const w = gardenData.walls.find(item => item.id === id);
+if (w) {
+document.getElementById('p-x').value = w.x1;
+document.getElementById('p-y').value = w.y1;
+document.getElementById('l-x2').value = w.x2;
+document.getElementById('l-y2').value = w.y2;
+}
+}
+}
+// Aksiyonları veri modeline işleme (Ekleme/Düzenleme/Silme)
+function commitAction() {
+if (currentMode === 'delete' && selectedElement) {
+if (selectedElement.type === 'plant') {
+gardenData.plants = gardenData.plants.filter(p => p.id !== selectedElement.id);
+} else {
+gardenData.walls = gardenData.walls.filter(w => w.id !== selectedElement.id);
+}
+resetEditor();
+}
+else if (currentMode === 'plant') {
+const plantInfo = {
+id: selectedElement && selectedElement.type === 'plant' ? selectedElement.id : Date.now(),
+x: parseInt(document.getElementById('p-x').value),
+y: parseInt(document.getElementById('p-y').value),
+size: parseInt(document.getElementById('p-size').value),
+class: document.getElementById('p-class').value,
+species: document.getElementById('p-species').value,
+waterPeriod: parseInt(document.getElementById('p-water-per').value),
+fertilizePeriod: parseInt(document.getElementById('p-fert-per').value),
+moisture: parseInt(document.getElementById('p-moisture').value),
+ph: 6.5,
+lastWatered: selectedElement ? gardenData.plants.find(p=>p.id===selectedElement.id).lastWatered : new Date().toISOString(),
+lastFertilized: selectedElement ? gardenData.plants.find(p=>p.id===selectedElement.id).lastFertilized : new Date().toISOString()
+};
+if (selectedElement && selectedElement.type === 'plant') {
+const idx = gardenData.plants.findIndex(p => p.id === selectedElement.id);
+gardenData.plants[idx] = plantInfo;
+} else {
+gardenData.plants.push(plantInfo);
+}
+resetEditor();
+}
+else if (currentMode === 'line') {
+const wallInfo = {
+id: selectedElement && selectedElement.type === 'line' ? selectedElement.id : Date.now(),
+x1: parseInt(document.getElementById('p-x').value),
+y1: parseInt(document.getElementById('p-y').value),
+x2: parseInt(document.getElementById('l-x2').value),
+y2: parseInt(document.getElementById('l-y2').value)
+};
+if (selectedElement && selectedElement.type === 'line') {
+const idx = gardenData.walls.findIndex(w => w.id === selectedElement.id);
+gardenData.walls[idx] = wallInfo;
+} else {
+gardenData.walls.push(wallInfo);
+}
+resetEditor();
+}
+updateJSONArea();
+render();
+}
+// Hızlı Aksiyon Butonları (Sulanma ve Gübreleme sıfırlama)
+function quickAction(actionType) {
+if (selectedElement && selectedElement.type === 'plant') {
+const idx = gardenData.plants.findIndex(p => p.id === selectedElement.id);
+if (idx !== -1) {
+if (actionType === 'water') {
+gardenData.plants[idx].lastWatered = new Date().toISOString();
+gardenData.plants[idx].moisture = 80; // Reset moisture effect
+} else if (actionType === 'fertilize') {
+gardenData.plants[idx].lastFertilized = new Date().toISOString();
+}
+updateJSONArea();
+render();
+alert("Aksiyon kaydedildi!");
+}
+}
+}
+function resetEditor() {
+selectedElement = null;
+lineStartClick = null;
+document.getElementById('action-title').innerText = "Editor Actions";
+document.getElementById('quick-action-buttons').style.display = 'none';
+}
+// ÜST MENÜ YARDIMCI GÖRÜNÜMLERİ
+function showSettings() {
+document.getElementById('view-mode').value = 'map';
+render();
+const canvas = document.getElementById('map-canvas');
+canvas.innerHTML = `
+
+⚙️ System Settings (Filler Box)
+
+
+
+
+
+`;
+}
+function showAbout() {
+document.getElementById('view-mode').value = 'map';
+render();
+const canvas = document.getElementById('map-canvas');
+canvas.innerHTML = <div style="padding: 20px;"> <h3>🏡 About Garden Manager</h3><br> <p>Version 1.0.0 PoC Demo</p><br> <p>This prototype allows you to design, mock up, and calculate watering cycles for residential or professional agronomy projects.</p><br> <p>Created by <strong>Edem</strong>.</p> </div>;
+}
+
