@@ -8,475 +8,725 @@
         :root {
             --bg-color: #f4f7f6;
             --primary-color: #2e7d32;
-            --secondary-color: #388e3c;
-            --accent-color: #81c784;
-            --danger-color: #d32f2f;
-            --text-color: #333;
-            --white: #fff;
+            --secondary-color: #37474f;
+            --danger-color: #c62828;
+            --ok-color: #4caf50;
+            --border-color: #cfd8dc;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; min-height: 100vh; padding: 10px; gap: 10px; }
+        body { background-color: var(--bg-color); display: flex; flex-direction: column; min-height: 100vh; padding: 10px; gap: 10px; }
 
-        /* REKLAM ALANI */
-        #ad-area { background: linear-gradient(45deg, #ff9800, #f57c00); color: var(--white); text-align: center; padding: 15px; font-weight: bold; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        /* 1. Reklam Alanı */
+        .ad-area { background: #ffe082; text-align: center; padding: 8px; font-weight: bold; font-size: 14px; border: 1px dashed #ffb300; border-radius: 4px; }
 
-        /* ÜST MENÜ */
-        #top-menu { background-color: var(--primary-color); color: var(--white); padding: 15px; border-radius: 8px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
-        #top-menu h1 { font-size: 1.5rem; }
-        .menu-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-        button, select, input { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
-        button { background-color: var(--white); color: var(--primary-color); transition: background 0.2s; }
-        button:hover { background-color: var(--accent-color); color: var(--white); }
-        button.active { background-color: #1b5e20 !important; color: white; border: 2px solid white; }
-        select { background-color: var(--white); color: var(--text-color); }
+        /* 2. Üst Menü Alanı */
+        .top-menu { background: var(--primary-color); color: white; padding: 12px; border-radius: 4px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+        .top-menu h1 { font-size: 18px; }
+        .menu-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+        button, select { background: white; border: none; padding: 6px 12px; font-size: 13px; font-weight: bold; cursor: pointer; border-radius: 3px; color: var(--secondary-color); }
+        button:hover, select:hover { background: #e0e0e0; }
+        button.active { background: #ff5722; color: white; }
 
-        /* ORTA ÇALIŞMA ALANI (GRID) */
-        #main-container { display: grid; grid-template-columns: 1fr; gap: 10px; flex: 1; }
+        /* Yerleşim (Layout) Yapısı */
+        .main-container { display: flex; flex-direction: column; gap: 10px; flex: 1; }
 
-        /* GÖRSELLEŞTİRME ALANI */
-        #visualization-area { background-color: var(--white); border-radius: 8px; border: 2px solid #e0e0e0; min-height: 400px; max-height: 600px; overflow: auto; position: relative; padding: 15px; }
-        #map-canvas { background-color: #f1f8e9; border: 1px dashed var(--secondary-color); width: 100%; height: 100%; min-height: 380px; position: relative; cursor: crosshair; }
-        
-        /* Liste Görünümü */
-        .list-view-item { padding: 12px; margin-bottom: 8px; border-radius: 6px; border-left: 6px solid; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .status-ok { background-color: #e8f5e9; border-left-color: #2e7d32; }
-        .status-alert { background-color: #ffebee; border-left-color: #c62828; }
+        /* 3. Ana Görselleştirme Alanı */
+        .visual-area { background: white; border: 1px solid var(--border-color); border-radius: 4px; min-height: 400px; position: relative; overflow: auto; flex: 1; }
+        #map-canvas { background: #f1f8e9; display: block; width: 100%; height: 100%; min-height: 400px; cursor: crosshair; }
+        .list-view { padding: 15px; display: none; flex-direction: column; gap: 8px; }
+        .plant-row { padding: 10px; border-left: 6px solid var(--ok-color); background: #fafafa; border-radius: 4px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .plant-row.alert { border-left-color: var(--danger-color); background: #ffebee; }
 
-        /* Harita Elementleri */
-        .map-plant { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; cursor: pointer; transform: translate(-50%, -50%); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        .plant-flower { background-color: #e91e63; }
-        .plant-vegetable { background-color: #4caf50; }
-        .plant-tree { background-color: #795548; border: 2px solid #3e2723; }
-        .map-line { position: absolute; background-color: #5d4037; height: 4px; transform-origin: 0 0; cursor: pointer; }
-        .alert-indicator { position: absolute; top: -10px; right: -10px; background-color: var(--danger-color); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; animation: blink 1s infinite; }
-
-        /* AKSİYON MENÜSÜ */
-        #action-menu { background-color: #e0f2f1; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
+        /* 4. Aksiyon Menü Alanı */
+        .action-menu { background: white; border: 1px solid var(--border-color); border-radius: 4px; padding: 15px; min-width: 280px; display: flex; flex-direction: column; gap: 12px; }
+        .action-menu h3 { font-size: 15px; color: var(--secondary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 4px; }
         .form-group { display: flex; flex-direction: column; gap: 4px; }
-        .form-group label { font-size: 0.85rem; font-weight: bold; color: #004d40; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 300px; overflow-y: auto; padding-right: 5px; }
+        .form-group label { font-size: 12px; font-weight: bold; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 6px; border: 1px solid var(--border-color); font-size: 13px; font-weight: normal; }
 
-        /* ALT JSON ALANI */
-        #json-area { display: flex; flex-direction: column; gap: 5px; }
-        #json-textarea { width: 100%; height: 120px; font-family: monospace; font-size: 0.85rem; padding: 10px; border-radius: 6px; border: 1px solid #ccc; resize: vertical; }
+        /* 5. Alt JSON Alanı */
+        .json-area { background: #263238; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 5px; }
+        .json-area label { color: #81c784; font-size: 12px; font-weight: bold; }
+        #json-output { width: 100%; height: 150px; font-family: monospace; font-size: 12px; background: #37474f; color: #fff; border: 1px solid #455a64; padding: 8px; resize: vertical; }
 
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-
-        /* RESPONSIVE TASARIM (PC VE YATAY MOBİL) */
-        @media (min-width: 768px) or (orientation: landscape) {
-            #main-container { grid-template-columns: 3fr 1fr; }
-            #action-menu { max-height: 600px; overflow-y: auto; }
+        /* PC ve Mobil Yatay Ekranlar İçin Responsive Düzen */
+        @media (min-width: 768px) {
+            .main-container { flex-direction: row; }
+            .visual-area { flex: 2; }
+            .action-menu { flex: 1; max-width: 350px; }
         }
     </style>
 </head>
 <body>
 
-    <!-- 1. TOP ADVERTISEMENT AREA -->
-    <div id="ad-area">
-        🌱 [SPONSOR] Edem Tarım Teknolojileri - Akıllı Sulama Sistemlerinde %20 İndirim! 🌱
+    <!-- 1. Reklam Alanı -->
+    <div class="ad-area">
+        🌱 Sponsor: Edem Tarım Teknolojileri - Akıllı Sulama Çözümleri Burada! Prototip Reklam Alanı 🌱
     </div>
 
-    <!-- 2. TOP MENU AREA -->
-    <div id="top-menu">
+    <!-- 2. Üst Menü Alanı -->
+    <div class="top-menu">
         <h1>Garden Manager by Edem</h1>
         <div class="menu-controls">
-            <button onclick="newGarden()">New Garden</button>
-            <button onclick="saveGarden()">Save Garden</button>
-            <button onclick="loadGarden()">Load Garden</button>
+            <button onclick="newGarden()">Yeni Bahçe</button>
+            <button onclick="saveGarden()">Bahçeyi Kaydet</button>
+            <button onclick="loadGarden()">JSON'dan Yükle</button>
             <select id="view-mode" onchange="toggleViewMode()">
-                <option value="map">Map View</option>
-                <option value="list">List View</option>
+                <option value="map">Harita Görünümü</option>
+                <option value="list">Liste Görünümü</option>
             </select>
-            <button onclick="showSettings()">Settings</button>
-            <button onclick="showAbout()">About</button>
+            <button onclick="showSettings()">Ayarlar</button>
+            <button onclick="showAbout()">Hakkında</button>
         </div>
     </div>
 
-    <!-- MAIN GRID -->
-    <div id="main-container">
-        <!-- 3. MAIN VISUALIZATION AREA -->
-        <div id="visualization-area">
-            <div id="map-canvas" onclick="handleMapClick(event)"></div>
+    <div class="main-container">
+        <!-- 3. Ana Görselleştirme Alanı -->
+        <div class="visual-area" id="visual-area">
+            <canvas id="map-canvas" width="800" height="500"></canvas>
+            <div id="list-view" class="list-view"></div>
         </div>
 
-        <!-- 4. ACTION MENU AREA -->
-        <div id="action-menu">
-            <h3 id="action-title">Editor Actions</h3>
-            <div class="menu-controls" style="justify-content: center;">
-                <button id="btn-mode-plant" class="active" onclick="setEditorMode('plant')">+ Plant</button>
-                <button id="btn-mode-line" onclick="setEditorMode('line')">+ Line/Wall</button>
-                <button id="btn-mode-delete" onclick="setEditorMode('delete')" style="background-color: var(--danger-color); color: white;">Delete</button>
+        <!-- 4. Aksiyon Menü Alanı -->
+        <div class="action-menu">
+            <h3>İşlem Modu</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <button id="btn-mode-view" class="active" onclick="setInteractionMode('view')">Seç/Gör</button>
+                <button id="btn-mode-addPlant" onclick="setInteractionMode('addPlant')">+ Bitki</button>
+                <button id="btn-mode-addLine" onclick="setInteractionMode('addLine')">+ Çizgi</button>
+                <button id="btn-mode-delete" onclick="setInteractionMode('delete')">Sil (Çöp Kutusu)</button>
             </div>
-            
-            <hr style="border: 0.5px solid #b2dfdb;">
 
-            <!-- Dynamic Input Form -->
-            <div class="form-grid" id="editor-form">
+            <div id="editor-panel">
+                <h3>Öğe Detayları</h3>
                 <div class="form-group">
-                    <label>X Coord</label>
-                    <input type="number" id="p-x" value="50">
-                </div>
-                <div class="form-group">
-                    <label>Y Coord</label>
-                    <input type="number" id="p-y" value="50">
-                </div>
-                <div class="form-group plant-field">
-                    <label>Class</label>
-                    <select id="p-class">
-                        <option value="flower">Flower</option>
-                        <option value="vegetable">Vegetable</option>
-                        <option value="tree">Tree</option>
+                    <label>Tür (Sınıf)</label>
+                    <select id="p-class" onchange="adaptSpeciesOptions()">
+                        <option value="flower">Çiçek</option>
+                        <option value="vegetable">Sebze</option>
+                        <option value="tree">Ağaç</option>
                     </select>
                 </div>
-                <div class="form-group plant-field">
-                    <label>Species</label>
-                    <input type="text" id="p-species" value="Tomato">
+                <div class="form-group">
+                    <label>Çeşit (Species)</label>
+                    <input type="text" id="p-species" value="Gül">
                 </div>
-                <div class="form-group plant-field">
-                    <label>Size (px)</label>
-                    <input type="number" id="p-size" value="40">
+                <div class="form-group">
+                    <label>Boyut (Px)</label>
+                    <input type="number" id="p-size" value="20" min="5" max="100" onchange="updateSelectedObject()">
                 </div>
-                <div class="form-group plant-field">
-                    <label>Water Period (Hrs)</label>
-                    <input type="number" id="p-water-per" value="24">
+                <div class="form-group">
+                    <label>Sulama Periyodu (Gün)</label>
+                    <input type="number" id="p-water-days" value="3">
                 </div>
-                <div class="form-group plant-field">
-                    <label>Fertilize Period (Days)</label>
-                    <input type="number" id="p-fert-per" value="30">
+                <div class="form-group">
+                    <label>Gübreleme Periyodu (Gün)</label>
+                    <input type="number" id="p-fert-days" value="30">
                 </div>
-                <div class="form-group plant-field">
-                    <label>Moisture (%)</label>
-                    <input type="number" id="p-moisture" value="45">
+                <div class="form-group">
+                    <label>Mevcut Nem (%) / Gerekli</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="number" id="p-curr-moist" value="45">
+                        <input type="number" id="p-req-moist" value="50">
+                    </div>
                 </div>
-                <div class="form-group line-field" style="display:none;">
-                    <label>End X</label>
-                    <input type="number" id="l-x2" value="150">
+                <div class="form-group">
+                    <label>Mevcut pH / Gerekli</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="number" id="p-curr-ph" value="6.5" step="0.1">
+                        <input type="number" id="p-req-ph" value="6.0" step="0.1">
+                    </div>
                 </div>
-                <div class="form-group line-field" style="display:none;">
-                    <label>End Y</label>
-                    <input type="number" id="l-y2" value="150">
-                </div>
-            </div>
-
-            <div style="display: flex; gap: 5px; flex-direction: column; margin-top: 5px;">
-                <button onclick="commitAction()" style="background-color: var(--primary-color); color: white;">Apply / Create</button>
-                <div id="quick-action-buttons" style="display: none; gap: 5px;">
-                    <button onclick="quickAction('water')" style="background-color: #2196f3; color: white; flex: 1;">💦 Watered</button>
-                    <button onclick="quickAction('fertilize')" style="background-color: #9c27b0; color: white; flex: 1;">💩 Fertilized</button>
+                <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 5px;">
+                    <button style="background: #bbdefb;" onclick="actionTrigger('water')">💧 Sula (Sıfırla)</button>
+                    <button style="background: #d1c4e9;" onclick="actionTrigger('fertilize')">🌿 Gübrele (Sıfırla)</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 5. LOWER JSON AREA -->
-    <div id="json-area">
-        <label style="font-weight: bold; font-size: 0.9rem;">Garden Design JSON (Copy/Paste/Modify to debug)</label>
-        <textarea id="json-textarea"></textarea>
+    <!-- 5. Alt JSON Alanı -->
+    <div class="json-area">
+        <label for="json-output">Dynamic Garden JSON Data (Kopyala / Yapıştır / Düzenle):</label>
+        <textarea id="json-output"></textarea>
     </div>
 
     <script>
-        // Default Boş Bahçe Yapısı
-        const defaultGarden = {
-            gardenName: "My Dream Garden",
+        // Global Durum Yönetimi
+        let gardenData = {};
+        let interactionMode = 'view'; // view, addPlant, addLine, delete
+        let selectedIndex = null;
+        let selectedType = null; // 'plant' veya 'line'
+        let lineStartPoint = null;
+
+        const canvas = document.getElementById('map-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Boş Bahçe Şablonu
+        const emptyGarden = {
+            gardenName: "Benim Güzel Bahçem",
             creatorName: "Edem",
-            version: "1.0.0",
-            creationDate: new Date().toISOString(),
-            plants: [{ id: 1, x: 100, y: 120, size: 40, class: "flower", species: "Rose", waterPeriod: 24, fertilizePeriod: 7, lastWatered: "2026-07-04T12:00:00.000Z", lastFertilized: "2026-06-01T12:00:00.000Z", moisture: 12, ph: 6.5 },
-{ id: 2, x: 250, y: 180, size: 50, class: "vegetable", species: "Pepper", waterPeriod: 48, fertilizePeriod: 15, lastWatered: "2026-07-05T10:00:00.000Z", lastFertilized: "2026-07-01T12:00:00.000Z", moisture: 60, ph: 6.2 },
-{ id: 3, x: 400, y: 150, size: 70, class: "tree", species: "Apple Tree", waterPeriod: 168, fertilizePeriod: 90, lastWatered: "2026-06-20T12:00:00.000Z", lastFertilized: "2026-07-04T12:00:00.000Z", moisture: 40, ph: 7.0 }
-],
-walls: [
-{ id: 1, x1: 20, y1: 20, x2: 500, y2: 20 },
-{ id: 2, x1: 20, y1: 20, x2: 20, y2: 350 }
-]
+            softwareVersion: "1.0.0",
+            creationDate: new Date().toISOString().split('T')[0],
+            plants: [],
+            walls: []
+        };
+
+        // Tarayıcı çerez/localStorage kontrolü ile başlatma
+        window.onload = function() {
+            let saved = localStorage.getItem('edem_garden_data');
+            if(!saved) saved = getCookie('edem_garden_data');
+            
+            if(saved) {
+                try { gardenData = JSON.parse(saved); } catch(e) { gardenData = { ...emptyGarden }; }
+            } else {
+                gardenData = { ...emptyGarden };
+                // Test verisi ekle
+                gardenData.plants.push({
+                    id: 1, x: 150, y: 150, size: 25, class: 'tree', species: 'Elma Ağacı',
+                    waterPeriodDays: 7, fertPeriodDays: 90, dateOfPlanting: '2026-01-01',
+                    lastWatered: '2026-06-28', nextWatered: '2026-07-05',
+                    lastFertilized: '2026-05-01', nextFertilized: '2026-08-01',
+                    currentMoisture: 40, requiredMoisture: 50, currentPh: 6.2, requiredPh: 6.5
+                });
+                gardenData.walls.push({ x1: 50, y1: 50, x2: 400, y2: 50 });
+            }
+            updateJSONArea();
+            render();
+Bu harika bir fikir! Tek sayfalık, sunucusuz (serverless) ve cookie/localStorage tabanlı bir prototip, projenizin mantığını ve kullanıcı deneyimini hızlıca göstermek için en etkili yöntemdir.
+İstediğiniz tüm özellikleri (duvar çizimi, bitki ekleme, harita/liste görünümü, dinamik JSON senkronizasyonu ve duyarlı/responsive tasarım) içeren, tek dosyalık (index.html) kaynak kodunu aşağıda bulabilirsiniz. Bu kodu doğrudan github.io üzerinde yayınlayabilirsiniz.
+## index.html
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garden Manager by Edem</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --primary-color: #2e7d32;
+            --secondary-color: #37474f;
+            --danger-color: #c62828;
+            --ok-color: #4caf50;
+            --border-color: #cfd8dc;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); display: flex; flex-direction: column; min-height: 100vh; padding: 10px; gap: 10px; }
+
+        /* 1. Reklam Alanı */
+        .ad-area { background: #ffe082; text-align: center; padding: 8px; font-weight: bold; font-size: 14px; border: 1px dashed #ffb300; border-radius: 4px; }
+
+        /* 2. Üst Menü Alanı */
+        .top-menu { background: var(--primary-color); color: white; padding: 12px; border-radius: 4px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+        .top-menu h1 { font-size: 18px; }
+        .menu-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+        button, select { background: white; border: none; padding: 6px 12px; font-size: 13px; font-weight: bold; cursor: pointer; border-radius: 3px; color: var(--secondary-color); }
+        button:hover, select:hover { background: #e0e0e0; }
+        button.active { background: #ff5722; color: white; }
+
+        /* Yerleşim (Layout) Yapısı */
+        .main-container { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+
+        /* 3. Ana Görselleştirme Alanı */
+        .visual-area { background: white; border: 1px solid var(--border-color); border-radius: 4px; min-height: 400px; position: relative; overflow: auto; flex: 1; }
+        #map-canvas { background: #f1f8e9; display: block; width: 100%; height: 100%; min-height: 400px; cursor: crosshair; }
+        .list-view { padding: 15px; display: none; flex-direction: column; gap: 8px; }
+        .plant-row { padding: 10px; border-left: 6px solid var(--ok-color); background: #fafafa; border-radius: 4px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .plant-row.alert { border-left-color: var(--danger-color); background: #ffebee; }
+
+        /* 4. Aksiyon Menü Alanı */
+        .action-menu { background: white; border: 1px solid var(--border-color); border-radius: 4px; padding: 15px; min-width: 280px; display: flex; flex-direction: column; gap: 12px; }
+        .action-menu h3 { font-size: 15px; color: var(--secondary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 4px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 12px; font-weight: bold; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 6px; border: 1px solid var(--border-color); font-size: 13px; font-weight: normal; }
+
+        /* 5. Alt JSON Alanı */
+        .json-area { background: #263238; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 5px; }
+        .json-area label { color: #81c784; font-size: 12px; font-weight: bold; }
+        #json-output { width: 100%; height: 150px; font-family: monospace; font-size: 12px; background: #37474f; color: #fff; border: 1px solid #455a64; padding: 8px; resize: vertical; }
+
+        /* PC ve Mobil Yatay Ekranlar İçin Responsive Düzen */
+        @media (min-width: 768px) {
+            .main-container { flex-direction: row; }
+            .visual-area { flex: 2; }
+            .action-menu { flex: 1; max-width: 350px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Reklam Alanı -->
+    <div class="ad-area">
+        🌱 Sponsor: Edem Tarım Teknolojileri - Akıllı Sulama Çözümleri Burada! Prototip Reklam Alanı 🌱
+    </div>
+
+    <!-- 2. Üst Menü Alanı -->
+    <div class="top-menu">
+        <h1>Garden Manager by Edem</h1>
+        <div class="menu-controls">
+            <button onclick="newGarden()">Yeni Bahçe</button>
+            <button onclick="saveGarden()">Bahçeyi Kaydet</button>
+            <button onclick="loadGarden()">JSON'dan Yükle</button>
+            <select id="view-mode" onchange="toggleViewMode()">
+                <option value="map">Harita Görünümü</option>
+                <option value="list">Liste Görünümü</option>
+            </select>
+            <button onclick="showSettings()">Ayarlar</button>
+            <button onclick="showAbout()">Hakkında</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- 3. Ana Görselleştirme Alanı -->
+        <div class="visual-area" id="visual-area">
+            <canvas id="map-canvas" width="800" height="500"></canvas>
+            <div id="list-view" class="list-view"></div>
+        </div>
+
+        <!-- 4. Aksiyon Menü Alanı -->
+        <div class="action-menu">
+            <h3>İşlem Modu</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <button id="btn-mode-view" class="active" onclick="setInteractionMode('view')">Seç/Gör</button>
+                <button id="btn-mode-addPlant" onclick="setInteractionMode('addPlant')">+ Bitki</button>
+                <button id="btn-mode-addLine" onclick="setInteractionMode('addLine')">+ Çizgi</button>
+                <button id="btn-mode-delete" onclick="setInteractionMode('delete')">Sil (Çöp Kutusu)</button>
+            </div>
+
+            <div id="editor-panel">
+                <h3>Öğe Detayları</h3>
+                <div class="form-group">
+                    <label>Tür (Sınıf)</label>
+                    <select id="p-class" onchange="adaptSpeciesOptions()">
+                        <option value="flower">Çiçek</option>
+                        <option value="vegetable">Sebze</option>
+                        <option value="tree">Ağaç</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Çeşit (Species)</label>
+                    <input type="text" id="p-species" value="Gül">
+                </div>
+                <div class="form-group">
+                    <label>Boyut (Px)</label>
+                    <input type="number" id="p-size" value="20" min="5" max="100" onchange="updateSelectedObject()">
+                </div>
+                <div class="form-group">
+                    <label>Sulama Periyodu (Gün)</label>
+                    <input type="number" id="p-water-days" value="3">
+                </div>
+                <div class="form-group">
+                    <label>Gübreleme Periyodu (Gün)</label>
+                    <input type="number" id="p-fert-days" value="30">
+                </div>
+                <div class="form-group">
+                    <label>Mevcut Nem (%) / Gerekli</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="number" id="p-curr-moist" value="45">
+                        <input type="number" id="p-req-moist" value="50">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Mevcut pH / Gerekli</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="number" id="p-curr-ph" value="6.5" step="0.1">
+                        <input type="number" id="p-req-ph" value="6.0" step="0.1">
+                    </div>
+                </div>
+                <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 5px;">
+                    <button style="background: #bbdefb;" onclick="actionTrigger('water')">💧 Sula (Sıfırla)</button>
+                    <button style="background: #d1c4e9;" onclick="actionTrigger('fertilize')">🌿 Gübrele (Sıfırla)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Alt JSON Alanı -->
+    <div class="json-area">
+        <label for="json-output">Dynamic Garden JSON Data (Kopyala / Yapıştır / Düzenle):</label>
+        <textarea id="json-output"></textarea>
+    </div>
+
+    <script>
+        // Global Durum Yönetimi
+        let gardenData = {};
+        let interactionMode = 'view'; // view, addPlant, addLine, delete
+        let selectedIndex = null;
+        let selectedType = null; // 'plant' veya 'line'
+        let lineStartPoint = null;
+
+        const canvas = document.getElementById('map-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Boş Bahçe Şablonu
+        const emptyGarden = {
+            gardenName: "Benim Güzel Bahçem",
+            creatorName: "Edem",
+            softwareVersion: "1.0.0",
+            creationDate: new Date().toISOString().split('T')[0],
+            plants: [],
+            walls: []
+        };
+
+        // Tarayıcı çerez/localStorage kontrolü ile başlatma
+        window.onload = function() {
+            let saved = localStorage.getItem('edem_garden_data');
+            if(!saved) saved = getCookie('edem_garden_data');
+            
+            if(saved) {
+                try { gardenData = JSON.parse(saved); } catch(e) { gardenData = { ...emptyGarden }; }
+            } else {
+                gardenData = { ...emptyGarden };
+                // Test verisi ekle
+                gardenData.plants.push({
+                    id: 1, x: 150, y: 150, size: 25, class: 'tree', species: 'Elma Ağacı',
+                    waterPeriodDays: 7, fertPeriodDays: 90, dateOfPlanting: '2026-01-01',
+                    lastWatered: '2026-06-28', nextWatered: '2026-07-05',
+                    lastFertilized: '2026-05-01', nextFertilized: '2026-08-01',
+                    currentMoisture: 40, requiredMoisture: 50, currentPh: 6.2, requiredPh: 6.5
+                });
+                gardenData.walls.push({ x1: 50, y1: 50, x2: 400, y2: 50 });
+            }
+            updateJSONArea();
+            render();
+
+adaptCanvasSize();
 };
-let gardenData = JSON.parse(JSON.stringify(defaultGarden));
-let currentMode = 'plant'; // 'plant', 'line', 'delete'
-let selectedElement = null; // {type: 'plant'/'line', id: x}
-let lineStartClick = null;
-// Uygulama Başlangıcı
-window.onload = function() {
-const saved = localStorage.getItem('edem_garden_data');
-if(saved) {
-try { gardenData = JSON.parse(saved); } catch(e) { console.error("Yükleme hatası", e); }
-}
-updateJSONArea();
-render();
-};
-function updateJSONArea() {
-document.getElementById('json-textarea').value = JSON.stringify(gardenData, null, 2);
-}
-function saveGarden() {
-try {
-const data = document.getElementById('json-textarea').value;
-gardenData = JSON.parse(data);
-localStorage.setItem('edem_garden_data', JSON.stringify(gardenData));
-render();
-alert("Bahçe kaydedildi ve güncellendi!");
-} catch (e) {
-alert("JSON formatı hatalı! Lütfen kontrol edin.");
-}
-}
-function loadGarden() {
-saveGarden();
-}
-function newGarden() {
-if(confirm("Tüm tasarımı sıfırlamak istediğinize emin misiniz?")) {
-gardenData = {
-gardenName: "New Garden",
-creatorName: "Edem",
-version: "1.0.0",
-creationDate: new Date().toISOString(),
-plants: [],
-walls: []
-};
-updateJSONArea();
-render();
-}
-}
-function setEditorMode(mode) {
-currentMode = mode;
-document.getElementById('btn-mode-plant').classList.remove('active');
-document.getElementById('btn-mode-line').classList.remove('active');
-document.getElementById('btn-mode-delete').classList.remove('active');
-if(mode === 'plant') document.getElementById('btn-mode-plant').classList.add('active');
-if(mode === 'line') document.getElementById('btn-mode-line').classList.add('active');
-if(mode === 'delete') document.getElementById('btn-mode-delete').classList.add('active');
-// Form alanlarını göster/gizle
-if(mode === 'line') {
-document.querySelectorAll('.plant-field').forEach(el => el.style.display = 'none');
-document.querySelectorAll('.line-field').forEach(el => el.style.display = 'block');
+window.onresize = adaptCanvasSize;
+function adaptCanvasSize() {
+const container = document.getElementById('visual-area');
+if (window.innerWidth < 768) {
+canvas.width = container.clientWidth;
+canvas.height = 400;
 } else {
-document.querySelectorAll('.plant-field').forEach(el => el.style.display = 'block');
-document.querySelectorAll('.line-field').forEach(el => el.style.display = 'none');
+canvas.width = container.clientWidth;
+canvas.height = Math.max(500, container.clientHeight);
 }
-lineStartClick = null;
-}
-// Bitki Sağlık Kontrolü (Alarm Durumu)
-function checkStatus(plant) {
-const now = new Date();
-const lastW = new Date(plant.lastWatered);
-const lastF = new Date(plant.lastFertilized);
-// Basit saat ve gün hesaplama farkı
-const hoursSinceWater = Math.abs(now - lastW) / 36e5;
-const daysSinceFertilize = Math.abs(now - lastF) / (36e5 * 24);
-if(hoursSinceWater > plant.waterPeriod || daysSinceFertilize > plant.fertilizePeriod || plant.moisture < 20) {
-return false; // Tehlike / Bakım lazım
-}
-return true; // Sağlıklı
-}
-// Harita veya Liste Görünümünü Değiştir
-function toggleViewMode() {
 render();
 }
-// Ekrana Çizim Yapma Ana Fonksiyonu
+// Mod Değişimi (Görselleştirme Türü)
+function toggleViewMode() {
+const mode = document.getElementById('view-mode').value;
+if(mode === 'map') {
+canvas.style.display = 'block';
+document.getElementById('list-view').style.display = 'none';
+render();
+} else {
+canvas.style.display = 'none';
+document.getElementById('list-view').style.display = 'flex';
+renderListView();
+}
+}
+function setInteractionMode(mode) {
+interactionMode = mode;
+lineStartPoint = null;
+document.querySelectorAll('.action-menu button').forEach(b => b.classList.remove('active'));
+document.getElementById(btn-mode-${mode}).classList.add('active');
+}
+// Bitki Sağlık Durumu Kontrolü (Alert tetikleyicileri)
+function checkAlert(plant) {
+const today = new Date('2026-07-05'); // Sabit simüle edilmiş şimdiki zaman context'i
+const nextW = new Date(plant.nextWatered);
+const nextF = new Date(plant.nextFertilized);
+if(nextW < today || nextF < today) return true;
+if(Math.abs(plant.currentMoisture - plant.requiredMoisture) > 15) return true;
+if(Math.abs(plant.currentPh - plant.requiredPh) > 1.0) return true;
+return false;
+}
+// Çizim Fonksiyonları (Map View)
 function render() {
-const viewMode = document.getElementById('view-mode').value;
-const container = document.getElementById('visualization-area');
-container.innerHTML = '';
-if (viewMode === 'map') {
-// Harita Tasarımı Çizimi
-const canvas = document.createElement('div');
-canvas.id = 'map-canvas';
-canvas.onclick = handleMapClick;
-container.appendChild(canvas);
-// Duvarları Çiz (Çizgiler)
-gardenData.walls.forEach(w => {
-const dx = w.x2 - w.x1;
-const dy = w.y2 - w.y1;
-const length = Math.sqrt(dxdx + dydy);
-const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-const lineEl = document.createElement('div');
-lineEl.className = 'map-line';
-lineEl.style.width = length + 'px';
-lineEl.style.left = w.x1 + 'px';
-lineEl.style.top = w.y1 + 'px';
-lineEl.style.transform = rotate(${angle}deg);
-lineEl.onclick = (e) => { e.stopPropagation(); selectElement('line', w.id); };
-canvas.appendChild(lineEl);
+if(document.getElementById('view-mode').value !== 'map') return;
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+// Izgara Çizimi (Arka plan için)
+ctx.strokeStyle = '#e8f5e9';
+ctx.lineWidth = 1;
+for(let x=0; x<canvas.width; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+for(let y=0; y<canvas.height; y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+// Duvarları / Çizgileri Çiz
+gardenData.walls.forEach((wall, idx) => {
+ctx.strokeStyle = (selectedType === 'line' && selectedIndex === idx) ? '#ff5722' : '#37474f';
+ctx.lineWidth = (selectedType === 'line' && selectedIndex === idx) ? 5 : 3;
+ctx.beginPath();
+ctx.moveTo(wall.x1, wall.y1);
+ctx.lineTo(wall.x2, wall.y2);
+ctx.stroke();
 });
 // Bitkileri Çiz
-gardenData.plants.forEach(p => {
-const plantEl = document.createElement('div');
-plantEl.className = map-plant plant-${p.class};
-plantEl.style.width = p.size + 'px';
-plantEl.style.height = p.size + 'px';
-plantEl.style.left = p.x + 'px';
-plantEl.style.top = p.y + 'px';
-plantEl.innerText = p.species.substring(0,2).toUpperCase();
-const isOk = checkStatus(p);
-if(!isOk) {
-const alertEl = document.createElement('div');
-alertEl.className = 'alert-indicator';
-alertEl.innerText = '!';
-plantEl.appendChild(alertEl);
+gardenData.plants.forEach((plant, idx) => {
+const isSelected = (selectedType === 'plant' && selectedIndex === idx);
+ctx.save();
+ctx.translate(plant.x, plant.y);
+// Seçim Halkası
+if(isSelected) {
+ctx.strokeStyle = '#ff5722';
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.arc(0, 0, plant.size + 6, 0, Math.PI*2);
+ctx.stroke();
 }
-plantEl.onclick = (e) => { e.stopPropagation(); selectElement('plant', p.id); };
-canvas.appendChild(plantEl);
+// Bitki Sınıfına Göre Şekil Çizimi
+if(plant.class === 'tree') {
+ctx.fillStyle = '#1b5e20';
+ctx.beginPath(); ctx.arc(0, 0, plant.size, 0, Math.PI2); ctx.fill();
+ctx.fillStyle = '#5d4037';
+ctx.fillRect(-plant.size/4, -plant.size/4, plant.size/2, plant.size/2);
+} else if(plant.class === 'vegetable') {
+ctx.fillStyle = '#2e7d32';
+ctx.fillRect(-plant.size, -plant.size/2, plant.size2, plant.size);
+ctx.fillStyle = '#e65100';
+ctx.beginPath(); ctx.arc(0, 0, plant.size/2, 0, Math.PI2); ctx.fill();
+} else { // flower
+ctx.fillStyle = '#ff8f00';
+ctx.beginPath(); ctx.arc(0, 0, plant.size, 0, Math.PI2); ctx.fill();
+ctx.fillStyle = '#ad1457';
+for(let i=0; i<5; i++) {
+ctx.rotate(Math.PI/2.5);
+ctx.fillRect(plant.size/2, -3, plant.size/2, 6);
+}
+}
+// Etiket
+ctx.fillStyle = '#000';
+ctx.font = '10px sans-serif';
+ctx.fillText(plant.species, -plant.size, -plant.size - 2);
+// Uyarı/Tehlike İşareti (!)
+if(checkAlert(plant)) {
+ctx.fillStyle = 'red';
+ctx.font = 'bold 20px Arial';
+ctx.fillText('⚠️', -10, 5);
+}
+ctx.restore();
 });
-} else {
-// Liste Görünümü Çizimi
+}
+// Liste Görünümü Güncellemesi
+function renderListView() {
+const listDiv = document.getElementById('list-view');
+listDiv.innerHTML = 'Bitki Sağlık Durum Listesi';
 if(gardenData.plants.length === 0) {
-container.innerHTML = "Bahçenizde henüz bitki yok.";
+listDiv.innerHTML += 'Bahçede henüz bitki yok.';
 return;
 }
-gardenData.plants.forEach(p => {
-const isOk = checkStatus(p);
-const listItem = document.createElement('div');
-listItem.className = list-view-item ${isOk ? 'status-ok' : 'status-alert'};
-listItem.innerHTML = <div> <strong>${p.species}</strong> (${p.class.toUpperCase()})<br> <small>Konum: (${p.x}, ${p.y}) | Nem: %${p.moisture} | pH: ${p.ph}</small> </div> <div style="text-align: right;"> <small>Durum: ${isOk ? 'Sağlıklı' : '🚨 BAKIM LAZIM'}</small><br> <button onclick="selectElement('plant', ${p.id}); document.getElementById('view-mode').value='map'; render();" style="font-size:0.75rem; padding:4px 8px;">Düzenle</button> </div>;
-container.appendChild(listItem);
+gardenData.plants.forEach((plant, idx) => {
+const isAlert = checkAlert(plant);
+const row = document.createElement('div');
+row.className = plant-row ${isAlert ? 'alert' : ''};
+row.innerHTML = <div> <strong>${plant.species}</strong> (${plant.class.toUpperCase()})<br> <small>Konum: [X:${plant.x}, Y:${plant.y}] | Nem: %${plant.currentMoisture} (Gereken: %${plant.requiredMoisture})</small> </div> <div style="text-align: right;"> <small>Sıra. Sulama: ${plant.nextWatered}</small><br> <span style="font-weight:bold; color:${isAlert?'red':'green'}">${isAlert ? '⚠️ İlgi Gerekiyor' : '✅ Sağlıklı'}</span> </div>;
+row.onclick = () => {
+selectedType = 'plant';
+selectedIndex = idx;
+loadPlantToInputs(plant);
+document.getElementById('view-mode').value = 'map';
+toggleViewMode();
+};
+listDiv.appendChild(row);
 });
 }
-}
-// Haritaya tıklama olayları
-function handleMapClick(e) {
-const rect = e.target.getBoundingClientRect();
+// Tıklama Yakalama (Harita Üzerinde İşlemler)
+canvas.addEventListener('click', function(e) {
+const rect = canvas.getBoundingClientRect();
 const x = Math.round(e.clientX - rect.left);
 const y = Math.round(e.clientY - rect.top);
-document.getElementById('p-x').value = x;
-document.getElementById('p-y').value = y;
-if (currentMode === 'line') {
-if (!lineStartClick) {
-lineStartClick = { x, y };
-alert("İlk nokta seçildi! Şimdi çizginin biteceği yere tıklayın veya koordinatları elle girip Apply'a basın.");
-} else {
-document.getElementById('l-x2').value = x;
-document.getElementById('l-y2').value = y;
-commitAction();
-}
-} else if (currentMode === 'plant') {
-commitAction();
-}
-}
-// Bir öğeyi seçip detaylarını aksiyon paneline yükleme
-function selectElement(type, id) {
-selectedElement = { type, id };
-document.getElementById('quick-action-buttons').style.display = type === 'plant' ? 'flex' : 'none';
-document.getElementById('action-title').innerText = Editing ${type} (ID: ${id});
-if (currentMode === 'delete') {
-commitAction();
-return;
-}
-if (type === 'plant') {
-setEditorMode('plant');
-const p = gardenData.plants.find(item => item.id === id);
-if (p) {
-document.getElementById('p-x').value = p.x;
-document.getElementById('p-y').value = p.y;
-document.getElementById('p-class').value = p.class;
-document.getElementById('p-species').value = p.species;
-document.getElementById('p-size').value = p.size;
-document.getElementById('p-water-per').value = p.waterPeriod;
-document.getElementById('p-fert-per').value = p.fertilizePeriod;
-document.getElementById('p-moisture').value = p.moisture;
-}
-} else if (type === 'line') {
-setEditorMode('line');
-const w = gardenData.walls.find(item => item.id === id);
-if (w) {
-document.getElementById('p-x').value = w.x1;
-document.getElementById('p-y').value = w.y1;
-document.getElementById('l-x2').value = w.x2;
-document.getElementById('l-y2').value = w.y2;
-}
-}
-}
-// Aksiyonları veri modeline işleme (Ekleme/Düzenleme/Silme)
-function commitAction() {
-if (currentMode === 'delete' && selectedElement) {
-if (selectedElement.type === 'plant') {
-gardenData.plants = gardenData.plants.filter(p => p.id !== selectedElement.id);
-} else {
-gardenData.walls = gardenData.walls.filter(w => w.id !== selectedElement.id);
-}
-resetEditor();
-}
-else if (currentMode === 'plant') {
-const plantInfo = {
-id: selectedElement && selectedElement.type === 'plant' ? selectedElement.id : Date.now(),
-x: parseInt(document.getElementById('p-x').value),
-y: parseInt(document.getElementById('p-y').value),
+if(interactionMode === 'addPlant') {
+const newP = {
+id: Date.now(),
+x: x, y: y,
 size: parseInt(document.getElementById('p-size').value),
 class: document.getElementById('p-class').value,
 species: document.getElementById('p-species').value,
-waterPeriod: parseInt(document.getElementById('p-water-per').value),
-fertilizePeriod: parseInt(document.getElementById('p-fert-per').value),
-moisture: parseInt(document.getElementById('p-moisture').value),
-ph: 6.5,
-lastWatered: selectedElement ? gardenData.plants.find(p=>p.id===selectedElement.id).lastWatered : new Date().toISOString(),
-lastFertilized: selectedElement ? gardenData.plants.find(p=>p.id===selectedElement.id).lastFertilized : new Date().toISOString()
+waterPeriodDays: parseInt(document.getElementById('p-water-days').value),
+fertPeriodDays: parseInt(document.getElementById('p-fert-days').value),
+dateOfPlanting: new Date().toISOString().split('T')[0],
+lastWatered: new Date().toISOString().split('T')[0],
+nextWatered: calculateNextDate(parseInt(document.getElementById('p-water-days').value)),
+lastFertilized: new Date().toISOString().split('T')[0],
+nextFertilized: calculateNextDate(parseInt(document.getElementById('p-fert-days').value)),
+currentMoisture: parseInt(document.getElementById('p-curr-moist').value),
+requiredMoisture: parseInt(document.getElementById('p-req-moist').value),
+currentPh: parseFloat(document.getElementById('p-curr-ph').value),
+requiredPh: parseFloat(document.getElementById('p-req-ph').value)
 };
-if (selectedElement && selectedElement.type === 'plant') {
-const idx = gardenData.plants.findIndex(p => p.id === selectedElement.id);
-gardenData.plants[idx] = plantInfo;
+gardenData.plants.push(newP);
+setInteractionMode('view');
+autoSave();
+}
+else if(interactionMode === 'addLine') {
+if(!lineStartPoint) {
+lineStartPoint = { x: x, y: y };
 } else {
-gardenData.plants.push(plantInfo);
+gardenData.walls.push({ x1: lineStartPoint.x, y1: lineStartPoint.y, x2: x, y2: y });
+lineStartPoint = null;
+setInteractionMode('view');
+autoSave();
 }
-resetEditor();
 }
-else if (currentMode === 'line') {
-const wallInfo = {
-id: selectedElement && selectedElement.type === 'line' ? selectedElement.id : Date.now(),
-x1: parseInt(document.getElementById('p-x').value),
-y1: parseInt(document.getElementById('p-y').value),
-x2: parseInt(document.getElementById('l-x2').value),
-y2: parseInt(document.getElementById('l-y2').value)
-};
-if (selectedElement && selectedElement.type === 'line') {
-const idx = gardenData.walls.findIndex(w => w.id === selectedElement.id);
-gardenData.walls[idx] = wallInfo;
+else if(interactionMode === 'delete') {
+// Tıklanan yerdeki öğeyi bul ve sil
+let found = findClickedObject(x, y);
+if(found) {
+if(found.type === 'plant') gardenData.plants.splice(found.idx, 1);
+if(found.type === 'line') gardenData.walls.splice(found.idx, 1);
+selectedIndex = null;
+selectedType = null;
+autoSave();
+}
+}
+else if(interactionMode === 'view') {
+let found = findClickedObject(x, y);
+if(found) {
+selectedType = found.type;
+selectedIndex = found.idx;
+if(found.type === 'plant') loadPlantToInputs(gardenData.plants[found.idx]);
 } else {
-gardenData.walls.push(wallInfo);
+selectedType = null;
+selectedIndex = null;
 }
-resetEditor();
 }
-updateJSONArea();
+render();
+});
+function findClickedObject(x, y) {
+// Önce bitkileri kontrol et
+for(let i=gardenData.plants.length-1; i>=0; i--) {
+let p = gardenData.plants[i];
+let dist = Math.hypot(p.x - x, p.y - y);
+if(dist <= p.size + 5) return { type: 'plant', idx: i };
+}
+// Çizgileri kontrol et
+for(let i=0; i<gardenData.walls.length; i++) {
+let w = gardenData.walls[i];
+if(distToSegment({x: x, y: y}, {x: w.x1, y: w.y1}, {x: w.x2, y: w.y2}) < 8) return { type: 'line', idx: i };
+}
+return null;
+}
+// Form Verilerini Seçilen Elemana Göre Güncelleme
+function loadPlantToInputs(plant) {
+document.getElementById('p-class').value = plant.class;
+document.getElementById('p-species').value = plant.species;
+document.getElementById('p-size').value = plant.size;
+document.getElementById('p-water-days').value = plant.waterPeriodDays;
+document.getElementById('p-fert-days').value = plant.fertPeriodDays;
+document.getElementById('p-curr-moist').value = plant.currentMoisture;
+document.getElementById('p-req-moist').value = plant.requiredMoisture;
+document.getElementById('p-curr-ph').value = plant.currentPh;
+document.getElementById('p-req-ph').value = plant.requiredPh;
+}
+function updateSelectedObject() {
+if(selectedType === 'plant' && selectedIndex !== null) {
+let p = gardenData.plants[selectedIndex];
+p.class = document.getElementById('p-class').value;
+p.species = document.getElementById('p-species').value;
+p.size = parseInt(document.getElementById('p-size').value);
+p.waterPeriodDays = parseInt(document.getElementById('p-water-days').value);
+p.fertPeriodDays = parseInt(document.getElementById('p-fert-days').value);
+p.currentMoisture = parseInt(document.getElementById('p-curr-moist').value);
+p.requiredMoisture = parseInt(document.getElementById('p-req-moist').value);
+p.currentPh = parseFloat(document.getElementById('p-curr-ph').value);
+p.requiredPh = parseFloat(document.getElementById('p-req-ph').value);
+autoSave();
 render();
 }
-// Hızlı Aksiyon Butonları (Sulanma ve Gübreleme sıfırlama)
-function quickAction(actionType) {
-if (selectedElement && selectedElement.type === 'plant') {
-const idx = gardenData.plants.findIndex(p => p.id === selectedElement.id);
-if (idx !== -1) {
-if (actionType === 'water') {
-gardenData.plants[idx].lastWatered = new Date().toISOString();
-gardenData.plants[idx].moisture = 80; // Reset moisture effect
-} else if (actionType === 'fertilize') {
-gardenData.plants[idx].lastFertilized = new Date().toISOString();
 }
-updateJSONArea();
+// Hızlı Aksiyonlar: Sula / Gübrele Buton İşlevleri
+function actionTrigger(type) {
+if(selectedType === 'plant' && selectedIndex !== null) {
+let p = gardenData.plants[selectedIndex];
+let todayStr = new Date().toISOString().split('T')[0];
+if(type === 'water') {
+p.lastWatered = todayStr;
+p.nextWatered = calculateNextDate(p.waterPeriodDays);
+p.currentMoisture = p.requiredMoisture; // Nemi ideal seviyeye getirir
+} else if(type === 'fertilize') {
+p.lastFertilized = todayStr;
+p.nextFertilized = calculateNextDate(p.fertPeriodDays);
+}
+loadPlantToInputs(p);
+autoSave();
 render();
-alert("Aksiyon kaydedildi!");
+} else {
+alert("Lütfen önce haritadan işlem yapmak istediğiniz bitkiyi seçin.");
 }
 }
+// Dinamik Yardımcı Tür Seçimleri
+function adaptSpeciesOptions() {
+const cls = document.getElementById('p-class').value;
+const spInput = document.getElementById('p-species');
+if(cls === 'tree') spInput.value = "Limon Ağacı";
+if(cls === 'vegetable') spInput.value = "Domates";
+if(cls === 'flower') spInput.value = "Papatya";
+updateSelectedObject();
 }
-function resetEditor() {
-selectedElement = null;
-lineStartClick = null;
-document.getElementById('action-title').innerText = "Editor Actions";
-document.getElementById('quick-action-buttons').style.display = 'none';
+// Üst Menü Komutları
+function newGarden() {
+if(confirm("Tüm tasarımı temizlemek istediğinize emin misiniz?")) {
+gardenData = { ...emptyGarden, plants: [], walls: [] };
+autoSave();
+render();
 }
-// ÜST MENÜ YARDIMCI GÖRÜNÜMLERİ
+}
+function saveGarden() {
+const dataStr = JSON.stringify(gardenData, null, 2);
+localStorage.setItem('edem_garden_data', dataStr);
+setCookie('edem_garden_data', dataStr, 7);
+updateJSONArea();
+alert("Bahçe verileri tarayıcı hafızasına ve alt JSON alanına kaydedildi!");
+}
+function loadGarden() {
+try {
+const rawJson = document.getElementById('json-output').value;
+gardenData = JSON.parse(rawJson);
+render();
+alert("JSON başarıyla çözüldü ve haritaya uygulandı!");
+} catch(e) {
+alert("JSON Hatası! Lütfen kodu kontrol edin: " + e.message);
+}
+}
+function autoSave() {
+updateJSONArea();
+localStorage.setItem('edem_garden_data', JSON.stringify(gardenData));
+}
+function updateJSONArea() {
+document.getElementById('json-output').value = JSON.stringify(gardenData, null, 2);
+}
 function showSettings() {
-document.getElementById('view-mode').value = 'map';
-render();
-const canvas = document.getElementById('map-canvas');
-canvas.innerHTML = `
-
-⚙️ System Settings (Filler Box)
-
-
-
-
-
-`;
+alert("Ayarlar Paneli Filler: Gelecekte buraya IoT Gateway IP tanımları, Sensör frekans ayarları ve Bildirim konfigürasyonları eklenecektir.");
 }
 function showAbout() {
-document.getElementById('view-mode').value = 'map';
-render();
-const canvas = document.getElementById('map-canvas');
-canvas.innerHTML = <div style="padding: 20px;"> <h3>🏡 About Garden Manager</h3><br> <p>Version 1.0.0 PoC Demo</p><br> <p>This prototype allows you to design, mock up, and calculate watering cycles for residential or professional agronomy projects.</p><br> <p>Created by <strong>Edem</strong>.</p> </div>;
+alert("Garden Manager v1.0.0\nEdem tarafından GitHub Pages için özel olarak tasarlanmış tek sayfalık hafif bahçe planlama arabirimi.");
 }
-
+// Matematiksel Yardımcı Fonksiyonlar (Çizgi Tıklama Tespiti)
+function sqr(x) { return x * x }
+function dist2(v, w) { return sqr(v.x - w.x) + sqr(v.y - w.y) }
+function distToSegmentSquared(p, v, w) {
+let l2 = dist2(v, w);
+if (l2 == 0) return dist2(p, v);
+let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+t = Math.max(0, Math.min(1, t));
+return dist2(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) });
+}
+function distToSegment(p, v, w) { return Math.sqrt(distToSegmentSquared(p, v, w)); }
+function calculateNextDate(days) {
+let d = new Date();
+d.setDate(d.getDate() + days);
+return d.toISOString().split('T')[0];
+}
+// Çerez (Cookie) Yönetim Fonksiyonları
+function setCookie(cname, cvalue, exdays) {
+const d = new Date();
+d.setTime(d.getTime() + (exdays2460601000));
+let expires = "expires="+ d.toUTCString();
+document.cookie = cname + "=" + encodeURIComponent(cvalue) + ";" + expires + ";path=/";
+}
+function getCookie(cname) {
+let name = cname + "=";
+let decodedCookie = decodeURIComponent(document.cookie);
+let ca = decodedCookie.split(';');
+for(let i = 0; i <ca.length; i++) {
+let c = ca[i];
+while (c.charAt(0) == ' ') { c = substr(1); }
+if (c.indexOf(name) == 0) { return c.substring(name.length, c.length); }
+}
+return "";
+}
