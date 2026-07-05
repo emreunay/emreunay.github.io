@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garden Manager by Edem</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --primary-color: #2e7d32;
+            --secondary-color: #388e3c;
+            --accent-color: #81c784;
+            --danger-color: #d32f2f;
+            --text-color: #333;
+            --white: #fff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; min-height: 100vh; padding: 10px; gap: 10px; }
+
+        /* REKLAM ALANI */
+        #ad-area { background: linear-gradient(45deg, #ff9800, #f57c00); color: var(--white); text-align: center; padding: 15px; font-weight: bold; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+        /* ÜST MENÜ */
+        #top-menu { background-color: var(--primary-color); color: var(--white); padding: 15px; border-radius: 8px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+        #top-menu h1 { font-size: 1.5rem; }
+        .menu-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        button, select, input { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+        button { background-color: var(--white); color: var(--primary-color); transition: background 0.2s; }
+        button:hover { background-color: var(--accent-color); color: var(--white); }
+        button.active { background-color: #1b5e20 !important; color: white; border: 2px solid white; }
+        select { background-color: var(--white); color: var(--text-color); }
+
+        /* ORTA ÇALIŞMA ALANI (GRID) */
+        #main-container { display: grid; grid-template-columns: 1fr; gap: 10px; flex: 1; }
+
+        /* GÖRSELLEŞTİRME ALANI */
+        #visualization-area { background-color: var(--white); border-radius: 8px; border: 2px solid #e0e0e0; min-height: 400px; max-height: 600px; overflow: auto; position: relative; padding: 15px; }
+        #map-canvas { background-color: #f1f8e9; border: 1px dashed var(--secondary-color); width: 100%; height: 100%; min-height: 380px; position: relative; cursor: crosshair; }
+        
+        /* Liste Görünümü */
+        .list-view-item { padding: 12px; margin-bottom: 8px; border-radius: 6px; border-left: 6px solid; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .status-ok { background-color: #e8f5e9; border-left-color: #2e7d32; }
+        .status-alert { background-color: #ffebee; border-left-color: #c62828; }
+
+        /* Harita Elementleri */
+        .map-plant { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; cursor: pointer; transform: translate(-50%, -50%); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .plant-flower { background-color: #e91e63; }
+        .plant-vegetable { background-color: #4caf50; }
+        .plant-tree { background-color: #795548; border: 2px solid #3e2723; }
+        .map-line { position: absolute; background-color: #5d4037; height: 4px; transform-origin: 0 0; cursor: pointer; }
+        .alert-indicator { position: absolute; top: -10px; right: -10px; background-color: var(--danger-color); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; animation: blink 1s infinite; }
+
+        /* AKSİYON MENÜSÜ */
+        #action-menu { background-color: #e0f2f1; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 0.85rem; font-weight: bold; color: #004d40; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 300px; overflow-y: auto; padding-right: 5px; }
+
+        /* ALT JSON ALANI */
+        #json-area { display: flex; flex-direction: column; gap: 5px; }
+        #json-textarea { width: 100%; height: 120px; font-family: monospace; font-size: 0.85rem; padding: 10px; border-radius: 6px; border: 1px solid #ccc; resize: vertical; }
+
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* RESPONSIVE TASARIM (PC VE YATAY MOBİL) */
+        @media (min-width: 768px) or (orientation: landscape) {
+            #main-container { grid-template-columns: 3fr 1fr; }
+            #action-menu { max-height: 600px; overflow-y: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. TOP ADVERTISEMENT AREA -->
+    <div id="ad-area">
+        🌱 [SPONSOR] Edem Tarım Teknolojileri - Akıllı Sulama Sistemlerinde %20 İndirim! 🌱
+    </div>
+
+    <!-- 2. TOP MENU AREA -->
+    <div id="top-menu">
+        <h1>Garden Manager by Edem</h1>
+        <div class="menu-controls">
+            <button onclick="newGarden()">New Garden</button>
+            <button onclick="saveGarden()">Save Garden</button>
+            <button onclick="loadGarden()">Load Garden</button>
+            <select id="view-mode" onchange="toggleViewMode()">
+                <option value="map">Map View</option>
+                <option value="list">List View</option>
+            </select>
+            <button onclick="showSettings()">Settings</button>
+            <button onclick="showAbout()">About</button>
+        </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div id="main-container">
+        <!-- 3. MAIN VISUALIZATION AREA -->
+        <div id="visualization-area">
+            <div id="map-canvas" onclick="handleMapClick(event)"></div>
+        </div>
+
+        <!-- 4. ACTION MENU AREA -->
+        <div id="action-menu">
+            <h3 id="action-title">Editor Actions</h3>
+            <div class="menu-controls" style="justify-content: center;">
+                <button id="btn-mode-plant" class="active" onclick="setEditorMode('plant')">+ Plant</button>
+                <button id="btn-mode-line" onclick="setEditorMode('line')">+ Line/Wall</button>
+                <button id="btn-mode-delete" onclick="setEditorMode('delete')" style="background-color: var(--danger-color); color: white;">Delete</button>
+            </div>
+            
+            <hr style="border: 0.5px solid #b2dfdb;">
+
+            <!-- Dynamic Input Form -->
+            <div class="form-grid" id="editor-form">
+                <div class="form-group">
+                    <label>X Coord</label>
+                    <input type="number" id="p-x" value="50">
+                </div>
+                <div class="form-group">
+                    <label>Y Coord</label>
+                    <input type="number" id="p-y" value="50">
+                </div>
+                <div class="form-group plant-field">
+                    <label>Class</label>
+                    <select id="p-class">
+                        <option value="flower">Flower</option>
+                        <option value="vegetable">Vegetable</option>
+                        <option value="tree">Tree</option>
+                    </select>
+                </div>
+                <div class="form-group plant-field">
+                    <label>Species</label>
+                    <input type="text" id="p-species" value="Tomato">
+                </div>
+                <div class="form-group plant-field">
+                    <label>Size (px)</label>
+                    <input type="number" id="p-size" value="40">
+                </div>
+                <div class="form-group plant-field">
+                    <label>Water Period (Hrs)</label>
+                    <input type="number" id="p-water-per" value="24">
+                </div>
+                <div class="form-group plant-field">
+                    <label>Fertilize Period (Days)</label>
+                    <input type="number" id="p-fert-per" value="30">
+                </div>
+                <div class="form-group plant-field">
+                    <label>Moisture (%)</label>
+                    <input type="number" id="p-moisture" value="45">
+                </div>
+                <div class="form-group line-field" style="display:none;">
+                    <label>End X</label>
+                    <input type="number" id="l-x2" value="150">
+                </div>
+                <div class="form-group line-field" style="display:none;">
+                    <label>End Y</label>
+                    <input type="number" id="l-y2" value="150">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 5px; flex-direction: column; margin-top: 5px;">
+                <button onclick="commitAction()" style="background-color: var(--primary-color); color: white;">Apply / Create</button>
+                <div id="quick-action-buttons" style="display: none; gap: 5px;">
+                    <button onclick="quickAction('water')" style="background-color: #2196f3; color: white; flex: 1;">💦 Watered</button>
+                    <button onclick="quickAction('fertilize')" style="background-color: #9c27b0; color: white; flex: 1;">💩 Fertilized</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. LOWER JSON AREA -->
+    <div id="json-area">
+        <label style="font-weight: bold; font-size: 0.9rem;">Garden Design JSON (Copy/Paste/Modify to debug)</label>
+        <textarea id="json-textarea"></textarea>
+    </div>
+
+    <script>
+        // Default Boş Bahçe Yapısı
+        const defaultGarden = {
+            gardenName: "My Dream Garden",
+            creatorName: "Edem",
+            version: "1.0.0",
+            creationDate: new Date().toISOString(),
+            plants: [
